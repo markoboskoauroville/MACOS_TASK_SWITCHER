@@ -11,14 +11,16 @@
 -- exactly the same images like on the dock."
 --
 -- Ticked:
---   ⌃`          the app used before this one (tap again: back)
---   ⌃` held     the square opens on every screen: every app on the Dock, last used
---               first, Finder among them; ` moves the light on, ⇧` back, the arrow
---               keys walk the grid, ⎋ closes without a jump; letting go of ⌃ (or ⏎)
---               brings the lit app to the front, launching it if it is not running;
---               the mouse works too: hovering lights a cell, a click on it is the jump;
---               Q quits the lit app and H hides it, as ⌘Q and ⌘H do inside ⌘Tab
---               (Marko, 9.9.2026: "the same functionality as in macOS on our switcher")
+--   ⌃`          the square opens on every screen and STAYS OPEN: every app on the Dock, last
+--               used first, Finder among them, the light on the app used before this one.
+--               Marko, 10.9.2026: "it should stay open until I press escape or click out of
+--               it ... control + tick opens it, and then tick is selecting and enter is
+--               activating the app. Or mouse is activating the app."
+--   `           moves the light on, ⇧` back (⌃` and ⌃⇧` do the same); the arrow keys walk the grid
+--   ⏎           brings the lit app to the front, launching it if it is not running
+--   the mouse   hovering lights a cell, a click on it is the jump
+--   ⎋           closes without a jump; so does a click anywhere outside the square
+--   Q, H        quit or hide the lit app, as ⌘Q and ⌘H do inside ⌘Tab; the square stays
 -- The list is the Dock's own (com.apple.dock.plist, persistent-apps), read
 -- when the app starts and again whenever the Dock changes it. The icons are
 -- the bundles' own, the ones the Dock shows. THE ORDER LEARNS HIS HABITS
@@ -28,7 +30,7 @@
 -- the Dock's order. Every activation counts, from any road, through the
 -- application watcher; ~/.config/dock.json keeps the counts and the order.
 
-local M = { name = "Dock Switcher (⌃` over everything on the Dock, running or not)", key = "dock" }
+local M = { name = "Dock Switcher (⌃` opens the square of the Dock; ` selects, ⏎ or the mouse starts)", key = "dock" }
 _G.TASK_SWITCHER = M                                   -- reachable from hs -c and from the star's switch
 
 local HOME  = os.getenv("HOME")
@@ -44,7 +46,6 @@ local apps = {}                  -- { id, name, path, icon } in the Dock's order
 local mru = {}                   -- bundle ids, most recently used first
 local use = {}                   -- bundle id -> how many times it was brought forward
 local hotkeys = {}
-local holdMod = "ctrl"           -- the modifier whose release is the jump: the first one in the shortcut
 local watcher, plistWatcher
 
 local function grid() return dofile(GRID) end
@@ -155,7 +156,7 @@ function M.previous()
 end
 
 -- ---------------------------------------------------------------- ⌘Tab
-local row, lit, cols, flagTap, keyTap, clock
+local row, lit, cols, keyTap, mouseTap
 
 local function items()
     local t = {}
@@ -163,12 +164,9 @@ local function items()
     return t
 end
 
-local function held() return hs.eventtap.checkKeyboardModifiers()[holdMod] and true or false end
-
 local function close()
-    if flagTap then flagTap:stop(); flagTap = nil end
     if keyTap then keyTap:stop(); keyTap = nil end
-    if clock then clock:stop(); clock = nil end
+    if mouseTap then mouseTap:stop(); mouseTap = nil end
     grid().hide()
     local target = row and row[lit]
     row = nil
@@ -212,6 +210,10 @@ function M.quit(id)                                    -- the same from outside,
     return false
 end
 
+-- THE SQUARE STAYS OPEN (Marko, 10.9.2026). ⌃` opens it with the light on the app used before
+-- this one, so ⏎ at once is "back". While it is up, ` moves the light on and ⇧` back (the
+-- shortcut itself does the same), the arrows walk the grid, ⏎ or a click on a cell is the jump,
+-- ⎋ or a click outside closes it. Nothing happens when a modifier is let go.
 local function step(dir)
     if not row then
         row = candidates()
@@ -219,20 +221,12 @@ local function step(dir)
         lit = 1
         cols = math.ceil(math.sqrt(#row))
         local g = grid(); g.onPick = pick; g.onHover = hover
-        if not held() then                                   -- a tap, the modifier already gone: straight back
-            lit = 2; commit(); return
-        end
-        -- letting go of the modifier is the jump: an event tap hears it, and a small
-        -- clock looks every tenth of a second in case the tap missed the moment
-        flagTap = hs.eventtap.new({ hs.eventtap.event.types.flagsChanged }, function(e)
-            if not e:getFlags()[holdMod] then commit() end
-            return false
-        end)
-        flagTap:start()
-        -- while the square is up: arrows walk it, ⎋ closes it, ⏎ jumps, Q quits, H hides; those keys go no further
         keyTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(e)
             local k = hs.keycodes.map[e:getKeyCode()]
-            if k == "right" then move(1) return true
+            local shift = e:getFlags().shift and true or false
+            if k == "`" then move(shift and -1 or 1) return true
+            elseif k == "tab" then move(shift and -1 or 1) return true
+            elseif k == "right" then move(1) return true
             elseif k == "left" then move(-1) return true
             elseif k == "down" then move(cols) return true
             elseif k == "up" then move(-cols) return true
@@ -244,12 +238,14 @@ local function step(dir)
             return false
         end)
         keyTap:start()
-        clock = hs.timer.doEvery(0.1, function()
-            if row and not held() then commit() end
+        -- a click outside the square closes it; a click inside is the grid's own (a cell is the jump)
+        mouseTap = hs.eventtap.new({ hs.eventtap.event.types.leftMouseDown, hs.eventtap.event.types.rightMouseDown }, function(e)
+            if row and not grid().inside(e:location()) then cancel() end
+            return false
         end)
+        mouseTap:start()
     end
     move(dir)
-    if not held() then commit() end                          -- a quick tap: already let go
 end
 
 -- ---------------------------------------------------------------- the shortcut
@@ -277,7 +273,6 @@ local function bind()
     local text = hotkeyText()
     local mods, key = parse(text)
     if not key or #mods == 0 then hs.alert.show("Dock Switcher: the shortcut needs a modifier, like ctrl+`", 3); return end
-    holdMod = mods[1]
     local ok, hk = pcall(hs.hotkey.bind, mods, key, function() step(1) end, nil, function() step(1) end)
     if not ok then hs.alert.show("Dock Switcher: cannot bind " .. text, 3); return end
     hotkeys[1] = hk
@@ -292,7 +287,7 @@ end
 
 local function askShortcut()
     local button, text = hs.dialog.textPrompt("Dock Switcher",
-        "The shortcut that walks the Dock like ⌘Tab (with shift it walks backwards).\nWords joined by plus; the first modifier is the one you hold, for example  ctrl+`  or  alt+space.",
+        "The shortcut that opens the square (with shift it walks backwards).\nWords joined by plus, for example  ctrl+`  or  alt+space.",
         hotkeyText(), "Set", "Cancel")
     if button ~= "Set" then return end
     local s = load()

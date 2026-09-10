@@ -1,8 +1,9 @@
 # macOS Task Switcher — a Dock replacement for Hammerspoon
 
-**⌘Tab over everything on your Dock, running or not. Hold ⌃, tap `, and a square of your Dock's
-own icons opens in the middle of every screen at once. Let go on the one you want and it comes to
-the front, or launches. Q quits it, H hides it, the mouse works, and the order learns your habits.**
+**⌘Tab over everything on your Dock, running or not. ⌃` opens a square of your Dock's own icons in
+the middle of every screen at once, and it stays open: ` moves the light, ⏎ or a click brings the lit
+app to the front, or launches it; ⎋ or a click outside closes it. Q quits, H hides, and the order
+learns your habits.**
 
 Two Lua files, no server, no daemon, nothing running until you start it. Written for Marko Boško's
 Mac on 9.9.2026, from his words: "a launcher and switcher at the same time acting same as Command
@@ -11,16 +12,20 @@ pick the app it becomes first one ... it gets the icon exactly the same images l
 
 ## What it does
 
-| Key | While the square is up |
-|-----|------------------------|
-| ⌃` (tap) | back to the app you used before this one; tap again and you are back |
-| ⌃` (hold), ` | the square opens; each ` moves the light on, ⇧` moves it back |
+| Key | What it does |
+|-----|--------------|
+| ⌃` | opens the square, the light on the app you used before this one; ⌃` again moves the light on, ⌃⇧` back |
+| ` or Tab | moves the light on; with ⇧ back |
 | ← → ↑ ↓ | walk the grid |
-| ⏎ or let go of ⌃ | bring the lit app to the front, launching it if it is not running |
+| ⏎ | bring the lit app to the front, launching it if it is not running |
 | Q | quit the lit app, politely, as ⌘Q does inside ⌘Tab; the square stays, its dot goes out |
 | H | hide the lit app |
-| ⎋ | close the square, jump nowhere |
-| the mouse | hovering lights a cell (its icon grows a little), a click is the jump |
+| ⎋ | close the square, jump nowhere; a click anywhere outside the square does the same |
+| the mouse | hovering lights a cell (its icon grows a little), a click on it is the jump |
+
+The square stays open until you choose or close it (Marko, 10.9.2026: "it should stay open until I
+press escape or click out of it ... control + tick opens it, and then tick is selecting and enter is
+activating the app. Or mouse is activating the app"). Letting go of ⌃ means nothing.
 
 - **The list is your Dock's.** Read from `~/Library/Preferences/com.apple.dock.plist`, `persistent-apps`,
   again whenever the Dock changes; Finder is added by hand because the Dock does not list it. The icons
@@ -31,8 +36,6 @@ pick the app it becomes first one ... it gets the icon exactly the same images l
   before it (so a tap is "back"), then the most opened first, and the never opened last in Dock order.
   Every activation counts, from any road, through an application watcher; the counts and the order live
   in `~/.config/dock.json`.
-- **Letting go is the jump.** An event tap hears the modifier release, and a tenth-of-a-second clock
-  checks it too, because a tap alone misses a very quick press.
 
 ## Install
 
@@ -50,7 +53,7 @@ shortcut, re-read the Dock) for any menu you want to put them in. On Marko's Mac
 (MANTRA_STAR, `apps/dock.lua`) is that menu: a tick starts it, a second tick stops it.
 
 The shortcut is words joined by plus in `~/.config/dock.json` (`"hotkey": "ctrl+\`"`, or `alt+space`);
-the first modifier is the one you hold.
+any modifier will do.
 
 ## Files
 

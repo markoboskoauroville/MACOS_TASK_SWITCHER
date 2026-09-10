@@ -98,6 +98,15 @@ function G.show(items, lit)
     return "grid " .. n .. " on " .. #hs.screen.allScreens() .. " screens"
 end
 
+-- is a point (the mouse, in screen coordinates) inside any of the squares
+function G.inside(p)
+    for _, c in pairs(G.canvases or {}) do
+        local f = c:frame()
+        if f and p.x >= f.x and p.x <= f.x + f.w and p.y >= f.y and p.y <= f.y + f.h then return true end
+    end
+    return false
+end
+
 function G.hide()
     for id, c in pairs(G.canvases or {}) do c:delete(); G.canvases[id] = nil end
     return "grid hidden"
