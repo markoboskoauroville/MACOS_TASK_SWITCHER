@@ -11,6 +11,8 @@
 -- exactly the same images like on the dock."
 --
 -- Ticked:
+--   ⌃⌃          two taps on ⌃ alone, close together, open the square too (13.9.2026); so does
+--               ⌃ held alone for three seconds
 --   ⌃`          the square opens on every screen and STAYS OPEN: every app on the Dock, last
 --               used first, Finder among them, the light on the app used before this one.
 --               Marko, 10.9.2026: "it should stay open until I press escape or click out of
@@ -49,6 +51,8 @@ local hotkeys = {}
 local watcher, plistWatcher
 local holdTap, holdTimer, ctrlDown          -- HOLD ⌃: the square opens when ⌃ alone is held for a while
 local HOLD_DEFAULT = 3                      -- seconds (Marko, 13.9.2026: "holding Ctrl for three seconds")
+local tapClean, lastTap = false, 0          -- DOUBLE TAP ⌃: two taps on ⌃ alone, close together, open the square
+local DOUBLE_DEFAULT = 0.4                  -- seconds between the two taps (Marko, 13.9.2026: "double tap on the control button")
 
 local function grid() return dofile(GRID) end
 
@@ -302,27 +306,55 @@ local function holdStop()
     if holdTimer then holdTimer:stop(); holdTimer = nil end
 end
 
+-- DOUBLE TAP ⌃ (Marko, 13.9.2026: "open it with double tap on the control button"). The same tap
+-- watches for ⌃ pressed alone and let go with no key and no other modifier in between: that is one
+-- tap. A second tap within a short moment opens the square as ⌃` would. A tap with a key in the
+-- middle (⌃C, ⌃`) is not a tap, and a hold that opened the square is not one either, so a single
+-- ⌃ used the ordinary way never opens anything.
+local function doubleSeconds()
+    local v = load().double
+    if v == nil then return DOUBLE_DEFAULT end
+    return tonumber(v) or 0
+end
+
 local function holdBind()
     if holdTap then holdTap:stop(); holdTap = nil end
     holdStop()
-    ctrlDown = false
+    ctrlDown, tapClean, lastTap = false, false, 0
     holdTap = hs.eventtap.new({ hs.eventtap.event.types.flagsChanged, hs.eventtap.event.types.keyDown }, function(e)
-        if e:getType() == hs.eventtap.event.types.keyDown then holdStop(); return false end
+        if e:getType() == hs.eventtap.event.types.keyDown then holdStop(); tapClean = false; lastTap = 0; return false end
         local f = e:getFlags()
         local alone = f.ctrl and not (f.cmd or f.alt or f.shift or f.fn)
+        local none = not (f.ctrl or f.cmd or f.alt or f.shift or f.fn)
         if alone and not ctrlDown then
             ctrlDown = true
+            tapClean = true
             local secs = holdSeconds()
             if secs > 0 and not row then
                 holdStop()
                 holdTimer = hs.timer.doAfter(secs, function()
                     holdTimer = nil
+                    tapClean = false                         -- a hold is not a tap
                     if ctrlDown and not row then step(1) end
                 end)
             end
         elseif not alone then
+            local wasTap = ctrlDown and tapClean and none     -- ⌃ let go clean: nothing else touched
             ctrlDown = false
+            tapClean = false
             holdStop()
+            if wasTap then
+                local now = hs.timer.secondsSinceEpoch()
+                local gap = doubleSeconds()
+                if gap > 0 and now - lastTap <= gap then
+                    lastTap = 0
+                    if not row then step(1) end
+                else
+                    lastTap = now
+                end
+            else
+                lastTap = 0                                   -- another modifier joined: not a tap
+            end
         end
         return false
     end)
@@ -361,6 +393,7 @@ local function watch()
 end
 
 function M.running() return on end
+function M.isOpen() return row ~= nil end                -- the square is up (for a test from hs -c)
 
 function M.start()
     local s = load(); s.enabled = true; save(s)
@@ -371,7 +404,7 @@ function M.start()
     watch()
     bind()
     holdBind()
-    return true, "Dock Switcher on: " .. hotkeyText() .. " walks " .. n .. " apps; ⌃ held " .. holdSeconds() .. " s opens the square"
+    return true, "Dock Switcher on: " .. hotkeyText() .. " walks " .. n .. " apps; ⌃ held " .. holdSeconds() .. " s or tapped twice opens the square"
 end
 
 function M.stop()
@@ -397,6 +430,8 @@ function M.menu()
         { title = "Set the keyboard shortcut…  (" .. hotkeyText() .. ")", fn = askShortcut },
         { title = "Holding ⌃ alone for " .. HOLD_DEFAULT .. " seconds opens the square", checked = holdSeconds() > 0,
           fn = function() local s = load(); s.hold = holdSeconds() > 0 and 0 or HOLD_DEFAULT; save(s) end },
+        { title = "A double tap on ⌃ alone opens the square", checked = doubleSeconds() > 0,
+          fn = function() local s = load(); s.double = doubleSeconds() > 0 and 0 or DOUBLE_DEFAULT; save(s) end },
         { title = "Read the Dock again  (" .. #apps .. " apps)", fn = function()
             hs.alert.show("Dock Switcher: " .. M.readDock() .. " apps", 2) end },
     }

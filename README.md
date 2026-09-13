@@ -1,6 +1,6 @@
 # macOS Task Switcher — a Dock replacement for Hammerspoon
 
-**⌘Tab over everything on your Dock, running or not. ⌃` opens a square of your Dock's own icons in
+**⌘Tab over everything on your Dock, running or not. ⌃` (or a double tap on ⌃, or ⌃ held) opens a square of your Dock's own icons in
 the middle of every screen at once, and it stays open: ` moves the light, ⏎ or a click brings the lit
 app to the front, or launches it; ⎋ or a click outside closes it. Q quits, H hides, and the order
 learns your habits.**
@@ -16,6 +16,7 @@ pick the app it becomes first one ... it gets the icon exactly the same images l
 |-----|--------------|
 | ⌃` | opens the square, the light on the app you used before this one; ⌃` again moves the light on, ⌃⇧` back |
 | ⌃ held alone for 3 s | opens the square the same way (13.9.2026); any other key in the meantime, or letting go, means nothing |
+| ⌃ tapped twice | two taps on ⌃ alone within 0.4 s open the square the same way (13.9.2026); a key or another modifier between the taps means nothing |
 | ` or Tab | moves the light on; with ⇧ back |
 | ← → ↑ ↓ | walk the grid |
 | ⏎ | bring the lit app to the front, launching it if it is not running |
@@ -52,11 +53,12 @@ and in `~/.hammerspoon/init.lua`:
     TASK_SWITCHER.start()
 
 Reload Hammerspoon. ⌃` is the default; `TASK_SWITCHER.menu()` returns the settings rows (change the
-shortcut, re-read the Dock) for any menu you want to put them in. On Marko's Mac the star menu
+shortcut, the hold and the double tap on and off, re-read the Dock) for any menu you want to put them in. On Marko's Mac the star menu
 (MANTRA_STAR, `apps/dock.lua`) is that menu: a tick starts it, a second tick stops it.
 
 The shortcut is words joined by plus in `~/.config/dock.json` (`"hotkey": "ctrl+\`"`, or `alt+space`);
-any modifier will do.
+any modifier will do. `"hold"` is the seconds ⌃ is held alone before the square opens (3; 0 turns it
+off) and `"double"` the longest gap between two taps on ⌃ (0.4; 0 turns it off).
 
 ## Files
 
