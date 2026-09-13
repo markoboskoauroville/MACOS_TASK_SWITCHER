@@ -12,6 +12,9 @@
 --     .onPick(i)          set by the owner: cell i was clicked (the jump, at once). Marko,
 --                         later the same day: "when I'm holding Control ... I can also
 --                         click with the mouse and start app."
+--     .onDrop(from, to)   set by the owner: the icon of cell `from` was dragged and let go on
+--                         cell `to` (13.9.2026: "I can grab the icon and move it to another
+--                         location"). A press that moves less than a few points is a click.
 --
 -- One hs.canvas per screen, the same picture on each: a dark rounded square,
 -- the icons in a grid as square as the count allows, the name under each, a
@@ -47,7 +50,9 @@ local function clockStyled(text)
     })
 end
 
-local function elements(items, lit, cols, rows)
+local DRAG_START = 6                               -- points the mouse must travel before a press is a drag
+
+local function elements(items, lit, cols, rows, lifted)
     local w, h = cols * CELL + PAD * 2, rows * CELL + PAD * 2
     local els = {
         { type = "rectangle", action = "fill", fillColor = { white = 0.08, alpha = 0.9 },
@@ -62,10 +67,11 @@ local function elements(items, lit, cols, rows)
                               frame = { x = x + 4, y = y + 4, w = CELL - 8, h = CELL - 8 } }
         end
         if it.icon then
-            -- the lit icon grows a little: under the mouse it says "ready to be clicked" (his request)
+            -- the lit icon grows a little: under the mouse it says "ready to be clicked" (his request);
+            -- the one being dragged stays as a shadow in its cell while its picture follows the mouse
             local size = i == lit and ICON * 1.22 or ICON
             els[#els + 1] = { type = "image", image = it.icon, imageScaling = "scaleProportionally",
-                              imageAlpha = i == lit and 1 or 0.85,
+                              imageAlpha = i == lifted and 0.25 or (i == lit and 1 or 0.85),
                               frame = { x = x + (CELL - size) / 2, y = y + 12 - (size - ICON) / 2, w = size, h = size } }
         end
         els[#els + 1] = { type = "text", text = it.name, textSize = 11, textLineBreak = "truncateTail",
@@ -76,12 +82,86 @@ local function elements(items, lit, cols, rows)
                               fillColor = { white = 1, alpha = 0.8 },
                               center = { x = x + CELL / 2, y = y + CELL - 6 } }
         end
-        -- an invisible plate over the cell, so the mouse can light it and pick it
+        -- an invisible plate over the cell, so the mouse can light it, pick it and pick it up
         els[#els + 1] = { type = "rectangle", action = "fill", fillColor = { alpha = 0 }, id = "cell" .. i,
-                          trackMouseEnterExit = true, trackMouseUp = true,
+                          trackMouseEnterExit = true, trackMouseDown = true,
                           frame = { x = x, y = y, w = CELL, h = CELL } }
     end
     return els, w, h
+end
+
+-- the cell under a point of the screen, if it is over one of the squares
+local function cellAt(p)
+    for _, c in pairs(G.canvases or {}) do
+        local f = c:frame()
+        if f and p.x >= f.x and p.x <= f.x + f.w and p.y >= f.y and p.y <= f.y + f.h then
+            local lx, ly = p.x - f.x - PAD, p.y - f.y - PAD
+            if lx < 0 or ly < 0 then return nil, c end
+            local col, r = math.floor(lx / CELL), math.floor(ly / CELL)
+            if col >= G.cols then return nil, c end
+            local i = r * G.cols + col + 1
+            if G.items and G.items[i] then return i, c end
+            return nil, c
+        end
+    end
+end
+
+-- THE DRAG. A press on a cell (the canvas says which) starts a watch on the mouse: when it has
+-- moved a few points the icon is lifted, its picture follows the mouse on the square under it,
+-- and the cell under the mouse lights as the place it will land; letting go there hands
+-- (from, to) to the owner. Letting go without having moved is the click of before, the jump.
+local function dragStop()
+    if G.dragTap then G.dragTap:stop(); G.dragTap = nil end
+    G.drag = nil
+end
+
+local function dragDraw(p)
+    local d = G.drag
+    local over, c = cellAt(p)
+    if over ~= d.over then                                       -- the landing cell changed: redraw the squares
+        d.over = over
+        local els = elements(G.items, over or d.from, G.cols, G.rows, d.from)
+        for _, cv in pairs(G.canvases or {}) do cv:replaceElements(els) end
+        d.canvas = nil
+    end
+    local it = G.items[d.from]
+    if not (it and it.icon) then return end
+    if d.canvas ~= c then                                        -- the mouse crossed to another screen's square
+        for _, cv in pairs(G.canvases or {}) do
+            while cv:elementCount() > G.count do cv:removeElement(cv:elementCount()) end
+        end
+        d.canvas = c
+        if c then c:appendElements({ type = "image", image = it.icon, imageScaling = "scaleProportionally",
+                                     frame = { x = 0, y = 0, w = ICON, h = ICON } }) end
+    end
+    if c then
+        local f = c:frame()
+        c:elementAttribute(c:elementCount(), "frame", { x = p.x - f.x - ICON / 2, y = p.y - f.y - ICON / 2, w = ICON, h = ICON })
+    end
+end
+
+local function dragStart(i, p)
+    dragStop()
+    G.drag = { from = i, x = p.x, y = p.y, moved = false }
+    G.dragTap = hs.eventtap.new({ hs.eventtap.event.types.leftMouseDragged, hs.eventtap.event.types.leftMouseUp }, function(e)
+        local d = G.drag
+        if not d then dragStop(); return false end
+        local q = e:location()
+        if e:getType() == hs.eventtap.event.types.leftMouseDragged then
+            if not d.moved and math.abs(q.x - d.x) + math.abs(q.y - d.y) >= DRAG_START then d.moved = true end
+            if d.moved then dragDraw(q) end
+            return false
+        end
+        local from, moved, over = d.from, d.moved, cellAt(q)
+        dragStop()
+        if not moved then
+            if G.onPick then G.onPick(from) end                  -- a plain click: the jump
+        elseif G.onDrop then
+            G.onDrop(from, over or from)                         -- let go off every cell: back where it was
+        end
+        return false
+    end)
+    G.dragTap:start()
 end
 
 function G.show(items, lit)
@@ -90,6 +170,7 @@ function G.show(items, lit)
     local cols = math.ceil(math.sqrt(n))
     local rows = math.ceil(n / cols)
     local els, w, h = elements(items, lit, cols, rows)
+    G.items, G.lit, G.cols, G.rows, G.count = items, lit, cols, rows, #els
     G.canvases = G.canvases or {}
     local seen = {}
     for _, screen in ipairs(hs.screen.allScreens()) do
@@ -102,12 +183,12 @@ function G.show(items, lit)
             c = hs.canvas.new(frame)
             c:level(hs.canvas.windowLevels.popUpMenu)       -- above every window, like ⌘Tab
             c:behavior(hs.canvas.windowBehaviors.canJoinAllSpaces)
-            c:canvasMouseEvents(false, true, true, false)   -- up, enter/exit
-            c:mouseCallback(function(_, ev, elId)
+            c:canvasMouseEvents(true, false, true, false)   -- down, enter/exit; the up is the drag's
+            c:mouseCallback(function(_, ev, elId, x, y)
                 local i = tonumber((tostring(elId):match("^cell(%d+)$")))
                 if not i then return end
-                if ev == "mouseEnter" and G.onHover then G.onHover(i)
-                elseif ev == "mouseUp" and G.onPick then G.onPick(i) end
+                if ev == "mouseEnter" and G.onHover and not G.drag then G.onHover(i)
+                elseif ev == "mouseDown" then dragStart(i, hs.mouse.absolutePosition()) end
             end)
             G.canvases[id] = c
         else
@@ -167,6 +248,7 @@ function G.inside(p)
 end
 
 function G.hide()
+    dragStop()
     for id, c in pairs(G.canvases or {}) do c:delete(); G.canvases[id] = nil end
     for id, c in pairs(G.clocks or {}) do c:delete(); G.clocks[id] = nil end
     if G.clockTimer then G.clockTimer:stop(); G.clockTimer = nil end

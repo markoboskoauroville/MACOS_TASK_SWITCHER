@@ -11,8 +11,13 @@
 -- exactly the same images like on the dock."
 --
 -- Ticked:
---   ⌃⌃          two taps on ⌃ alone, close together, open the square too (13.9.2026); so does
---               ⌃ held alone for three seconds
+--   ⌃⌃          two taps on ⌃ alone, close together, open the square too, and close it again when
+--               it is open (13.9.2026: "double tap is also closing it"). The hold
+--               (⌃ alone for three seconds) went the same evening: "the double tap works, so
+--               the hold on control is not necessary. You can remove it."
+--   dragging    an icon dragged to another cell moves it there, and the order is his from then
+--               on (13.9.2026: "I can grab the icon and move it to another location");
+--               "Learn the order from my habits again" in the submenu forgets it
 --   ⌃`          the square opens on every screen and STAYS OPEN: every app on the Dock, last
 --               used first, Finder among them, the light on the app used before this one.
 --               Marko, 10.9.2026: "it should stay open until I press escape or click out of
@@ -21,7 +26,7 @@
 --   `           moves the light on, ⇧` back (⌃` and ⌃⇧` do the same); the arrow keys walk the grid
 --   ⏎           brings the lit app to the front, launching it if it is not running
 --   the mouse   hovering lights a cell, a click on it is the jump
---   ⎋           closes without a jump; so does a click anywhere outside the square
+--   ⎋           closes without a jump; so does a click anywhere outside the square, or ⌃⌃
 --   Q, H        quit or hide the lit app, as ⌘Q and ⌘H do inside ⌘Tab; the square stays
 -- The list is the Dock's own (com.apple.dock.plist, persistent-apps), read
 -- when the app starts and again whenever the Dock changes it. The icons are
@@ -49,9 +54,9 @@ local mru = {}                   -- bundle ids, most recently used first
 local use = {}                   -- bundle id -> how many times it was brought forward
 local hotkeys = {}
 local watcher, plistWatcher
-local holdTap, holdTimer, ctrlDown          -- HOLD ⌃: the square opens when ⌃ alone is held for a while
-local HOLD_DEFAULT = 3                      -- seconds (Marko, 13.9.2026: "holding Ctrl for three seconds")
-local tapClean, lastTap = false, 0          -- DOUBLE TAP ⌃: two taps on ⌃ alone, close together, open the square
+local order = nil                -- HIS ORDER, bundle ids, once he has dragged an icon; nil while the order learns
+local ctrlTap, ctrlDown          -- DOUBLE TAP ⌃: a tap on the modifier keys watches ⌃ pressed and let go alone
+local tapClean, lastTap = false, 0
 local DOUBLE_DEFAULT = 0.4                  -- seconds between the two taps (Marko, 13.9.2026: "double tap on the control button")
 
 local function grid() return dofile(GRID) end
@@ -71,7 +76,7 @@ local function save(t)
 end
 
 local function remember()
-    local s = load(); s.mru = mru; s.use = use; save(s)
+    local s = load(); s.mru = mru; s.use = use; s.order = order; save(s)
 end
 
 -- ---------------------------------------------------------------- the Dock
@@ -122,10 +127,18 @@ local function touch(id)
 end
 
 -- the grid's order: the front app, the one used before it, then the most used
--- first (a tie goes to the more recent), then the never-used in the Dock's order
+-- first (a tie goes to the more recent), then the never-used in the Dock's order.
+-- HIS ORDER (13.9.2026): once an icon has been dragged, the cells stay where he put
+-- them, an app new to the Dock joins at the end, and the light opens on the app used
+-- before this one, so ⏎ at once is still "back".
 local function candidates()
     local list, seen = {}, {}
     local function take(a) if a and not seen[a.id] then list[#list + 1] = a; seen[a.id] = true end end
+    if order then
+        for _, id in ipairs(order) do take(byId(id)) end
+        for _, a in ipairs(apps) do take(a) end
+        return list
+    end
     local front = hs.application.frontmostApplication()
     local fid = front and front:bundleID()
     take(fid and byId(fid))
@@ -156,9 +169,24 @@ function M.open(a)
     end
 end
 
+-- the app used before the one in front: the second cell of the learned order, or, under his
+-- order, the first of the recently used that is not in front
+local function previousIndex(list)
+    if not order then return 2 end
+    local front = hs.application.frontmostApplication()
+    local fid = front and front:bundleID()
+    for _, id in ipairs(mru) do
+        if id ~= fid then
+            for i, a in ipairs(list) do if a.id == id then return i end end
+        end
+    end
+    return 1
+end
+
 function M.previous()
     local c = candidates()
-    if c[2] then M.open(c[2]) end
+    local a = c[previousIndex(c)]
+    if a then M.open(a) end
 end
 
 -- ---------------------------------------------------------------- ⌘Tab
@@ -195,6 +223,30 @@ local function hover(i)
     if row and row[i] and i ~= lit then lit = i; grid().show(items(), lit) end
 end
 
+-- DRAG AND DROP (Marko, 13.9.2026: "drag and drop my icons on this menu so I can rearrange
+-- how they appear ... since it stays open, I can grab the icon and move it to another
+-- location"). The grid reports the cell picked up and the cell it was dropped on; the app
+-- moves there, the others slide, and the whole row is written down as his order.
+local function drop(from, to)
+    if not row or not row[from] or not row[to] or from == to then
+        if row then grid().show(items(), lit) end
+        return
+    end
+    local a = table.remove(row, from)
+    table.insert(row, to, a)
+    lit = to
+    order = {}
+    for _, x in ipairs(row) do order[#order + 1] = x.id end
+    remember()
+    grid().show(items(), lit)
+end
+
+function M.forgetOrder()                               -- back to the learned order
+    order = nil
+    remember()
+    if row then row = candidates(); lit = 1; grid().show(items(), lit) end
+end
+
 -- Q and H while the square is up: the lit app is quit (asked politely, as ⌘Q does)
 -- or hidden; the square stays, its dot goes out a moment later
 local function quitLit()
@@ -224,9 +276,9 @@ local function step(dir)
     if not row then
         row = candidates()
         if #row < 2 then row = nil; return end
-        lit = 1
+        lit = order and (((previousIndex(row) - 1 - dir) % #row) + 1) or 1   -- the step below lands on "back"
         cols = math.ceil(math.sqrt(#row))
-        local g = grid(); g.onPick = pick; g.onHover = hover
+        local g = grid(); g.onPick = pick; g.onHover = hover; g.onDrop = drop
         keyTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(e)
             local k = hs.keycodes.map[e:getKeyCode()]
             local shift = e:getFlags().shift and true or false
@@ -291,64 +343,39 @@ local function bind()
     end
 end
 
--- HOLD ⌃ FOR THREE SECONDS (Marko, 13.9.2026: "a second shortcut to open the Dock Switcher by holding
--- Ctrl for three seconds"). A tap on the modifier keys: ⌃ pressed alone starts a clock; any other key or
--- modifier in the meantime, or ⌃ let go, stops it; when the clock runs out with ⌃ still down and the
--- square not open, the square opens as ⌃` would. ⌃` itself, or ⌃C, ⌃A and the rest, stop the clock
--- by their key, so nothing opens while ⌃ is used for something else.
-local function holdSeconds()
-    local v = load().hold
-    if v == nil then return HOLD_DEFAULT end
-    return tonumber(v) or 0
-end
-
-local function holdStop()
-    if holdTimer then holdTimer:stop(); holdTimer = nil end
-end
-
--- DOUBLE TAP ⌃ (Marko, 13.9.2026: "open it with double tap on the control button"). The same tap
--- watches for ⌃ pressed alone and let go with no key and no other modifier in between: that is one
--- tap. A second tap within a short moment opens the square as ⌃` would. A tap with a key in the
--- middle (⌃C, ⌃`) is not a tap, and a hold that opened the square is not one either, so a single
--- ⌃ used the ordinary way never opens anything.
+-- DOUBLE TAP ⌃ (Marko, 13.9.2026: "open it with double tap on the control button"). A tap on the
+-- modifier keys watches for ⌃ pressed alone and let go with no key and no other modifier in
+-- between: that is one tap. A second tap within a short moment opens the square as ⌃` would, or
+-- closes it when it is open ("double tap is also closing it ... one more option to the old ones"). A
+-- tap with a key in the middle (⌃C, ⌃`) is not a tap, so a single ⌃ used the ordinary way never
+-- opens anything. The hold (⌃ alone for three seconds) was taken out the same evening at his word.
 local function doubleSeconds()
     local v = load().double
     if v == nil then return DOUBLE_DEFAULT end
     return tonumber(v) or 0
 end
 
-local function holdBind()
-    if holdTap then holdTap:stop(); holdTap = nil end
-    holdStop()
+local function ctrlBind()
+    if ctrlTap then ctrlTap:stop(); ctrlTap = nil end
     ctrlDown, tapClean, lastTap = false, false, 0
-    holdTap = hs.eventtap.new({ hs.eventtap.event.types.flagsChanged, hs.eventtap.event.types.keyDown }, function(e)
-        if e:getType() == hs.eventtap.event.types.keyDown then holdStop(); tapClean = false; lastTap = 0; return false end
+    ctrlTap = hs.eventtap.new({ hs.eventtap.event.types.flagsChanged, hs.eventtap.event.types.keyDown }, function(e)
+        if e:getType() == hs.eventtap.event.types.keyDown then tapClean = false; lastTap = 0; return false end
         local f = e:getFlags()
         local alone = f.ctrl and not (f.cmd or f.alt or f.shift or f.fn)
         local none = not (f.ctrl or f.cmd or f.alt or f.shift or f.fn)
         if alone and not ctrlDown then
             ctrlDown = true
             tapClean = true
-            local secs = holdSeconds()
-            if secs > 0 and not row then
-                holdStop()
-                holdTimer = hs.timer.doAfter(secs, function()
-                    holdTimer = nil
-                    tapClean = false                         -- a hold is not a tap
-                    if ctrlDown and not row then step(1) end
-                end)
-            end
         elseif not alone then
             local wasTap = ctrlDown and tapClean and none     -- ⌃ let go clean: nothing else touched
             ctrlDown = false
             tapClean = false
-            holdStop()
             if wasTap then
                 local now = hs.timer.secondsSinceEpoch()
                 local gap = doubleSeconds()
                 if gap > 0 and now - lastTap <= gap then
                     lastTap = 0
-                    if not row then step(1) end
+                    if row then cancel() else step(1) end        -- a double tap while it is open closes it
                 else
                     lastTap = now
                 end
@@ -358,7 +385,7 @@ local function holdBind()
         end
         return false
     end)
-    holdTap:start()
+    ctrlTap:start()
 end
 
 local function askShortcut()
@@ -399,12 +426,13 @@ function M.start()
     local s = load(); s.enabled = true; save(s)
     mru = type(s.mru) == "table" and s.mru or {}
     use = type(s.use) == "table" and s.use or {}
+    order = type(s.order) == "table" and s.order or nil
     local n = M.readDock()
     on = true
     watch()
     bind()
-    holdBind()
-    return true, "Dock Switcher on: " .. hotkeyText() .. " walks " .. n .. " apps; ⌃ held " .. holdSeconds() .. " s or tapped twice opens the square"
+    ctrlBind()
+    return true, "Dock Switcher on: " .. hotkeyText() .. " walks " .. n .. " apps; ⌃ tapped twice opens the square"
 end
 
 function M.stop()
@@ -413,8 +441,7 @@ function M.stop()
     close()
     for _, hk in ipairs(hotkeys) do hk:delete() end
     hotkeys = {}
-    if holdTap then holdTap:stop(); holdTap = nil end
-    holdStop()
+    if ctrlTap then ctrlTap:stop(); ctrlTap = nil end
     if watcher then watcher:stop(); watcher = nil end
     if plistWatcher then plistWatcher:stop(); plistWatcher = nil end
     return true, "Dock Switcher off"
@@ -428,10 +455,11 @@ function M.menu()
     return {
         { title = "Previous app now  (" .. hotkeyText() .. ")", fn = M.previous },
         { title = "Set the keyboard shortcut…  (" .. hotkeyText() .. ")", fn = askShortcut },
-        { title = "Holding ⌃ alone for " .. HOLD_DEFAULT .. " seconds opens the square", checked = holdSeconds() > 0,
-          fn = function() local s = load(); s.hold = holdSeconds() > 0 and 0 or HOLD_DEFAULT; save(s) end },
         { title = "A double tap on ⌃ alone opens the square", checked = doubleSeconds() > 0,
           fn = function() local s = load(); s.double = doubleSeconds() > 0 and 0 or DOUBLE_DEFAULT; save(s) end },
+        { title = order and "Learn the order from my habits again  (the icons sit where you dragged them)"
+                         or "The order learns your habits  (drag an icon to set your own)",
+          disabled = order == nil, fn = M.forgetOrder },
         { title = "Read the Dock again  (" .. #apps .. " apps)", fn = function()
             hs.alert.show("Dock Switcher: " .. M.readDock() .. " apps", 2) end },
     }
