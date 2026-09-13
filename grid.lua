@@ -23,8 +23,8 @@
 -- date will be in the format of day month year", then "align it to the center",
 -- then "move the line with date time to center bottom of the screen". So while
 -- the square is open, a line stands at the bottom centre of every screen, above
--- the Dock:  14:05   Sunday   13 September 2026, white on nothing, moving with
--- the minute. It is its own small canvas per screen, shown and hidden with the square.
+-- the Dock:  14:05:32   Sunday   13 September 2026, white outlined in black, the
+-- seconds moving. It is its own small canvas per screen, shown and hidden with the square.
 
 local G = _G.DOCKGRID or {}
 _G.DOCKGRID = G
@@ -33,8 +33,18 @@ local CELL, ICON, PAD = 132, 76, 20
 local CLOCK_W, CLOCK_H, CLOCK_UP = 760, 36, 100   -- the clock's line: width, height, how far above the screen's bottom
 local CLOCK_SIZE = 22                             -- 13.9.2026: at 14 points on the 2560-wide BenQ the line was lost against Live's bottom bar
 
+-- 13.9.2026, once he saw it: "non-bold font, it's supposed to show seconds, and the font should be outlined"
 local function clockText()
-    return os.date("%H:%M   %A   ") .. tostring(tonumber(os.date("%d"))) .. os.date(" %B %Y")
+    return os.date("%H:%M:%S   %A   ") .. tostring(tonumber(os.date("%d"))) .. os.date(" %B %Y")
+end
+
+local function clockStyled(text)
+    return hs.styledtext.new(text, {
+        font = { name = "Menlo", size = CLOCK_SIZE },
+        color = { white = 1, alpha = 0.97 },
+        strokeColor = { black = 1, alpha = 0.95 }, strokeWidth = -2.5,    -- negative: the letters are filled AND outlined
+        paragraphStyle = { alignment = "center" },
+    })
 end
 
 local function elements(items, lit, cols, rows)
@@ -127,27 +137,22 @@ function G.showClock()
             c = hs.canvas.new(frame)
             c:level(hs.canvas.windowLevels.popUpMenu)
             c:behavior(hs.canvas.windowBehaviors.canJoinAllSpaces)
-            -- white letters, nothing behind them, a soft dark shadow so they read on a light wallpaper too
-            c[1] = { type = "text", text = clockText(), textSize = CLOCK_SIZE, textFont = "Menlo-Bold",
-                     textColor = { white = 1, alpha = 0.97 }, textAlignment = "center",
-                     withShadow = true, shadow = { blurRadius = 6, color = { black = 1, alpha = 0.9 }, offset = { h = -1, w = 0 } },
-                     frame = { x = 0, y = 0, w = CLOCK_W, h = CLOCK_H } }
+            -- white letters outlined in black, nothing behind them: they read on any background
+            c[1] = { type = "text", text = clockStyled(clockText()), frame = { x = 0, y = 0, w = CLOCK_W, h = CLOCK_H } }
             G.clocks[id] = c
         else
             c:frame(frame)
-            c[1].text = clockText()
+            c[1].text = clockStyled(clockText())
         end
         c:show()
     end
     for id, c in pairs(G.clocks) do
         if not seen[id] then c:delete(); G.clocks[id] = nil end
     end
-    if not G.clockTimer then                                    -- the minute moves while the square is open
-        G.clockTimer = hs.timer.doEvery(5, function()
-            local t = clockText()
-            for _, c in pairs(G.clocks or {}) do
-                if c[1].text ~= t then c[1].text = t end
-            end
+    if not G.clockTimer then                                    -- the seconds move while the square is open
+        G.clockTimer = hs.timer.doEvery(1, function()
+            local t = clockStyled(clockText())
+            for _, c in pairs(G.clocks or {}) do c[1].text = t end
         end)
     end
 end

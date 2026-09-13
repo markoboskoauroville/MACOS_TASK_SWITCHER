@@ -27,7 +27,7 @@ The square stays open until you choose or close it (Marko, 10.9.2026: "it should
 press escape or click out of it ... control + tick opens it, and then tick is selecting and enter is
 activating the app. Or mouse is activating the app"). Letting go of ⌃ means nothing.
 
-- **A clock at the bottom centre of every screen** while the square is open (13.9.2026): the time, the day, and the date as day month year, white on nothing, moving with the minute, so a glance at the switcher is a glance at the clock.
+- **A clock at the bottom centre of every screen** while the square is open (13.9.2026): the time with its seconds, the day, and the date as day month year, white letters outlined in black on nothing, so a glance at the switcher is a glance at the clock.
 
 - **The list is your Dock's.** Read from `~/Library/Preferences/com.apple.dock.plist`, `persistent-apps`,
   again whenever the Dock changes; Finder is added by hand because the Dock does not list it. The icons
