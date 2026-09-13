@@ -21,8 +21,8 @@
 -- THE CLOCK. Marko, 13.9.2026: "in the upper right corner with white font fully
 -- transparent, you need to have a real time clock then day then date without
 -- running seconds, and the date will be in the format of day month year." So the
--- upper right corner of the square says  14:05   Saturday   13 September 2026,
--- white on nothing, and it moves with the minute while the square is open.
+-- top of the square says  14:05   Saturday   13 September 2026, centred (his word
+-- once he saw it), white on nothing, and it moves with the minute while the square is open.
 
 local G = _G.DOCKGRID or {}
 _G.DOCKGRID = G
@@ -39,10 +39,10 @@ local function elements(items, lit, cols, rows)
     local els = {
         { type = "rectangle", action = "fill", fillColor = { white = 0.08, alpha = 0.9 },
           roundedRectRadii = { xRadius = 22, yRadius = 22 }, frame = { x = 0, y = 0, w = w, h = h } },
-        -- the clock: white letters and nothing behind them, in the upper right corner
+        -- the clock: white letters and nothing behind them, centred at the top (Marko, 13.9.2026: "align it to the center")
         { type = "text", id = "clock", text = clockText(), textSize = 12.5, textFont = "Menlo",
-          textColor = { white = 1, alpha = 0.92 }, textAlignment = "right",
-          frame = { x = w - 420 - 16, y = 8, w = 420, h = 18 } },
+          textColor = { white = 1, alpha = 0.92 }, textAlignment = "center",
+          frame = { x = 0, y = 8, w = w, h = 18 } },
     }
     for i, it in ipairs(items) do
         local r, c = math.floor((i - 1) / cols), (i - 1) % cols
