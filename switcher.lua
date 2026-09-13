@@ -158,14 +158,25 @@ local function candidates()
 end
 
 -- ---------------------------------------------------------------- a jump: focus, or launch
+-- THE HOOK. Whoever owns the switcher may set M.onOpen = function(a, launched): it is called
+-- after every jump made through the square, with the app ({ id, name, path }) and whether the
+-- jump launched it (true) or only brought it to the front (false). Marko's star menu uses it
+-- (13.9.2026: "connect running of DaVinci Resolve through Dock Switcher with ... number
+-- twelve, number thirteen, and number seventeen"): Resolve launched from the square starts
+-- its companions in the star.
 function M.open(a)
     if not a then return end
     touch(a.id)
     local app = hs.application.applicationsForBundleID(a.id)[1]
+    local launched = app == nil
     if app then
         app:activate(true)                                   -- every window of it, as ⌘Tab does
     elseif not hs.application.launchOrFocusByBundleID(a.id) then
         hs.application.open(a.path)                          -- an app whose id the Dock got wrong
+    end
+    if M.onOpen then
+        local ok, err = pcall(M.onOpen, a, launched)
+        if not ok then print("Dock Switcher: onOpen failed: " .. tostring(err)) end
     end
 end
 

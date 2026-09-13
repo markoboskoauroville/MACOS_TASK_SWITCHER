@@ -57,7 +57,10 @@ and in `~/.hammerspoon/init.lua`:
     TASK_SWITCHER.start()
 
 Reload Hammerspoon. ⌃` is the default; `TASK_SWITCHER.menu()` returns the settings rows (change the
-shortcut, the double tap on and off, forget the dragged order, re-read the Dock) for any menu you want to put them in. On Marko's Mac the star menu
+shortcut, the double tap on and off, forget the dragged order, re-read the Dock). `TASK_SWITCHER.onOpen`
+may be set to a function `(app, launched)`: it is called after every jump made through the square, with
+the app (`id`, `name`, `path`) and whether the jump launched it or only brought it forward, so something
+else can follow (on Marko's Mac the star menu starts Resolve's companions when Resolve is launched here) for any menu you want to put them in. On Marko's Mac the star menu
 (MANTRA_STAR, `apps/dock.lua`) is that menu: a tick starts it, a second tick stops it.
 
 The shortcut is words joined by plus in `~/.config/dock.json` (`"hotkey": "ctrl+\`"`, or `alt+space`);
