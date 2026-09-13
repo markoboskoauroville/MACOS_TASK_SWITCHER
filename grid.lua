@@ -17,21 +17,36 @@
 -- the icons in a grid as square as the count allows, the name under each, a
 -- small dot under the ones that run (as the Dock does), the chosen one lit.
 -- switcher.lua owns it.
+--
+-- THE CLOCK. Marko, 13.9.2026: "in the upper right corner with white font fully
+-- transparent, you need to have a real time clock then day then date without
+-- running seconds, and the date will be in the format of day month year." So the
+-- upper right corner of the square says  14:05   Saturday   13 September 2026,
+-- white on nothing, and it moves with the minute while the square is open.
 
 local G = _G.DOCKGRID or {}
 _G.DOCKGRID = G
 
 local CELL, ICON, PAD = 132, 76, 20
+local TOP = 30                                    -- room above the first row for the clock
+
+local function clockText()
+    return os.date("%H:%M   %A   ") .. tostring(tonumber(os.date("%d"))) .. os.date(" %B %Y")
+end
 
 local function elements(items, lit, cols, rows)
-    local w, h = cols * CELL + PAD * 2, rows * CELL + PAD * 2
+    local w, h = cols * CELL + PAD * 2, rows * CELL + PAD + TOP
     local els = {
         { type = "rectangle", action = "fill", fillColor = { white = 0.08, alpha = 0.9 },
           roundedRectRadii = { xRadius = 22, yRadius = 22 }, frame = { x = 0, y = 0, w = w, h = h } },
+        -- the clock: white letters and nothing behind them, in the upper right corner
+        { type = "text", id = "clock", text = clockText(), textSize = 12.5, textFont = "Menlo",
+          textColor = { white = 1, alpha = 0.92 }, textAlignment = "right",
+          frame = { x = w - 420 - 16, y = 8, w = 420, h = 18 } },
     }
     for i, it in ipairs(items) do
         local r, c = math.floor((i - 1) / cols), (i - 1) % cols
-        local x, y = PAD + c * CELL, PAD + r * CELL
+        local x, y = PAD + c * CELL, TOP + r * CELL
         if i == lit then
             els[#els + 1] = { type = "rectangle", action = "fill", fillColor = { white = 1, alpha = 0.22 },
                               roundedRectRadii = { xRadius = 16, yRadius = 16 },
@@ -95,6 +110,15 @@ function G.show(items, lit)
     for id, c in pairs(G.canvases) do                          -- a screen that was unplugged
         if not seen[id] then c:delete(); G.canvases[id] = nil end
     end
+    -- the minute moves while the square is open
+    if not G.clockTimer then
+        G.clockTimer = hs.timer.doEvery(5, function()
+            local t = clockText()
+            for _, c in pairs(G.canvases or {}) do
+                if c[2] and c[2].text ~= t then c[2].text = t end     -- element 2 is the clock
+            end
+        end)
+    end
     return "grid " .. n .. " on " .. #hs.screen.allScreens() .. " screens"
 end
 
@@ -109,6 +133,7 @@ end
 
 function G.hide()
     for id, c in pairs(G.canvases or {}) do c:delete(); G.canvases[id] = nil end
+    if G.clockTimer then G.clockTimer:stop(); G.clockTimer = nil end
     return "grid hidden"
 end
 
