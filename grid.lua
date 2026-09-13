@@ -18,35 +18,33 @@
 -- small dot under the ones that run (as the Dock does), the chosen one lit.
 -- switcher.lua owns it.
 --
--- THE CLOCK. Marko, 13.9.2026: "in the upper right corner with white font fully
--- transparent, you need to have a real time clock then day then date without
--- running seconds, and the date will be in the format of day month year." So the
--- top of the square says  14:05   Saturday   13 September 2026, centred (his word
--- once he saw it), white on nothing, and it moves with the minute while the square is open.
+-- THE CLOCK. Marko, 13.9.2026: "with white font fully transparent, you need to
+-- have a real time clock then day then date without running seconds, and the
+-- date will be in the format of day month year", then "align it to the center",
+-- then "move the line with date time to center bottom of the screen". So while
+-- the square is open, a line stands at the bottom centre of every screen, above
+-- the Dock:  14:05   Sunday   13 September 2026, white on nothing, moving with
+-- the minute. It is its own small canvas per screen, shown and hidden with the square.
 
 local G = _G.DOCKGRID or {}
 _G.DOCKGRID = G
 
 local CELL, ICON, PAD = 132, 76, 20
-local TOP = 30                                    -- room above the first row for the clock
+local CLOCK_W, CLOCK_H, CLOCK_UP = 520, 22, 64    -- the clock's line: width, height, how far above the screen's bottom
 
 local function clockText()
     return os.date("%H:%M   %A   ") .. tostring(tonumber(os.date("%d"))) .. os.date(" %B %Y")
 end
 
 local function elements(items, lit, cols, rows)
-    local w, h = cols * CELL + PAD * 2, rows * CELL + PAD + TOP
+    local w, h = cols * CELL + PAD * 2, rows * CELL + PAD * 2
     local els = {
         { type = "rectangle", action = "fill", fillColor = { white = 0.08, alpha = 0.9 },
           roundedRectRadii = { xRadius = 22, yRadius = 22 }, frame = { x = 0, y = 0, w = w, h = h } },
-        -- the clock: white letters and nothing behind them, centred at the top (Marko, 13.9.2026: "align it to the center")
-        { type = "text", id = "clock", text = clockText(), textSize = 12.5, textFont = "Menlo",
-          textColor = { white = 1, alpha = 0.92 }, textAlignment = "center",
-          frame = { x = 0, y = 8, w = w, h = 18 } },
     }
     for i, it in ipairs(items) do
         local r, c = math.floor((i - 1) / cols), (i - 1) % cols
-        local x, y = PAD + c * CELL, TOP + r * CELL
+        local x, y = PAD + c * CELL, PAD + r * CELL
         if i == lit then
             els[#els + 1] = { type = "rectangle", action = "fill", fillColor = { white = 1, alpha = 0.22 },
                               roundedRectRadii = { xRadius = 16, yRadius = 16 },
@@ -110,16 +108,45 @@ function G.show(items, lit)
     for id, c in pairs(G.canvases) do                          -- a screen that was unplugged
         if not seen[id] then c:delete(); G.canvases[id] = nil end
     end
-    -- the minute moves while the square is open
-    if not G.clockTimer then
+    G.showClock()
+    return "grid " .. n .. " on " .. #hs.screen.allScreens() .. " screens"
+end
+
+-- the clock's line at the bottom centre of every screen, white on nothing, while the square is open
+function G.showClock()
+    G.clocks = G.clocks or {}
+    local seen = {}
+    for _, screen in ipairs(hs.screen.allScreens()) do
+        local id = screen:id()
+        seen[id] = true
+        local f = screen:frame()
+        local frame = { x = f.x + (f.w - CLOCK_W) / 2, y = f.y + f.h - CLOCK_UP, w = CLOCK_W, h = CLOCK_H }
+        local c = G.clocks[id]
+        if not c then
+            c = hs.canvas.new(frame)
+            c:level(hs.canvas.windowLevels.popUpMenu)
+            c:behavior(hs.canvas.windowBehaviors.canJoinAllSpaces)
+            c[1] = { type = "text", text = clockText(), textSize = 14, textFont = "Menlo",
+                     textColor = { white = 1, alpha = 0.95 }, textAlignment = "center",
+                     frame = { x = 0, y = 0, w = CLOCK_W, h = CLOCK_H } }
+            G.clocks[id] = c
+        else
+            c:frame(frame)
+            c[1].text = clockText()
+        end
+        c:show()
+    end
+    for id, c in pairs(G.clocks) do
+        if not seen[id] then c:delete(); G.clocks[id] = nil end
+    end
+    if not G.clockTimer then                                    -- the minute moves while the square is open
         G.clockTimer = hs.timer.doEvery(5, function()
             local t = clockText()
-            for _, c in pairs(G.canvases or {}) do
-                if c[2] and c[2].text ~= t then c[2].text = t end     -- element 2 is the clock
+            for _, c in pairs(G.clocks or {}) do
+                if c[1].text ~= t then c[1].text = t end
             end
         end)
     end
-    return "grid " .. n .. " on " .. #hs.screen.allScreens() .. " screens"
 end
 
 -- is a point (the mouse, in screen coordinates) inside any of the squares
@@ -133,6 +160,7 @@ end
 
 function G.hide()
     for id, c in pairs(G.canvases or {}) do c:delete(); G.canvases[id] = nil end
+    for id, c in pairs(G.clocks or {}) do c:delete(); G.clocks[id] = nil end
     if G.clockTimer then G.clockTimer:stop(); G.clockTimer = nil end
     return "grid hidden"
 end
