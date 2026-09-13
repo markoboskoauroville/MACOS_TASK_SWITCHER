@@ -47,6 +47,8 @@ local mru = {}                   -- bundle ids, most recently used first
 local use = {}                   -- bundle id -> how many times it was brought forward
 local hotkeys = {}
 local watcher, plistWatcher
+local holdTap, holdTimer, ctrlDown          -- HOLD ⌃: the square opens when ⌃ alone is held for a while
+local HOLD_DEFAULT = 3                      -- seconds (Marko, 13.9.2026: "holding Ctrl for three seconds")
 
 local function grid() return dofile(GRID) end
 
@@ -285,6 +287,48 @@ local function bind()
     end
 end
 
+-- HOLD ⌃ FOR THREE SECONDS (Marko, 13.9.2026: "a second shortcut to open the Dock Switcher by holding
+-- Ctrl for three seconds"). A tap on the modifier keys: ⌃ pressed alone starts a clock; any other key or
+-- modifier in the meantime, or ⌃ let go, stops it; when the clock runs out with ⌃ still down and the
+-- square not open, the square opens as ⌃` would. ⌃` itself, or ⌃C, ⌃A and the rest, stop the clock
+-- by their key, so nothing opens while ⌃ is used for something else.
+local function holdSeconds()
+    local v = load().hold
+    if v == nil then return HOLD_DEFAULT end
+    return tonumber(v) or 0
+end
+
+local function holdStop()
+    if holdTimer then holdTimer:stop(); holdTimer = nil end
+end
+
+local function holdBind()
+    if holdTap then holdTap:stop(); holdTap = nil end
+    holdStop()
+    ctrlDown = false
+    holdTap = hs.eventtap.new({ hs.eventtap.event.types.flagsChanged, hs.eventtap.event.types.keyDown }, function(e)
+        if e:getType() == hs.eventtap.event.types.keyDown then holdStop(); return false end
+        local f = e:getFlags()
+        local alone = f.ctrl and not (f.cmd or f.alt or f.shift or f.fn)
+        if alone and not ctrlDown then
+            ctrlDown = true
+            local secs = holdSeconds()
+            if secs > 0 and not row then
+                holdStop()
+                holdTimer = hs.timer.doAfter(secs, function()
+                    holdTimer = nil
+                    if ctrlDown and not row then step(1) end
+                end)
+            end
+        elseif not alone then
+            ctrlDown = false
+            holdStop()
+        end
+        return false
+    end)
+    holdTap:start()
+end
+
 local function askShortcut()
     local button, text = hs.dialog.textPrompt("Dock Switcher",
         "The shortcut that opens the square (with shift it walks backwards).\nWords joined by plus, for example  ctrl+`  or  alt+space.",
@@ -326,7 +370,8 @@ function M.start()
     on = true
     watch()
     bind()
-    return true, "Dock Switcher on: " .. hotkeyText() .. " walks " .. n .. " apps"
+    holdBind()
+    return true, "Dock Switcher on: " .. hotkeyText() .. " walks " .. n .. " apps; ⌃ held " .. holdSeconds() .. " s opens the square"
 end
 
 function M.stop()
@@ -335,6 +380,8 @@ function M.stop()
     close()
     for _, hk in ipairs(hotkeys) do hk:delete() end
     hotkeys = {}
+    if holdTap then holdTap:stop(); holdTap = nil end
+    holdStop()
     if watcher then watcher:stop(); watcher = nil end
     if plistWatcher then plistWatcher:stop(); plistWatcher = nil end
     return true, "Dock Switcher off"
@@ -348,6 +395,8 @@ function M.menu()
     return {
         { title = "Previous app now  (" .. hotkeyText() .. ")", fn = M.previous },
         { title = "Set the keyboard shortcut…  (" .. hotkeyText() .. ")", fn = askShortcut },
+        { title = "Holding ⌃ alone for " .. HOLD_DEFAULT .. " seconds opens the square", checked = holdSeconds() > 0,
+          fn = function() local s = load(); s.hold = holdSeconds() > 0 and 0 or HOLD_DEFAULT; save(s) end },
         { title = "Read the Dock again  (" .. #apps .. " apps)", fn = function()
             hs.alert.show("Dock Switcher: " .. M.readDock() .. " apps", 2) end },
     }

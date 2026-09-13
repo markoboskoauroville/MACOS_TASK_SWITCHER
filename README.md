@@ -15,6 +15,7 @@ pick the app it becomes first one ... it gets the icon exactly the same images l
 | Key | What it does |
 |-----|--------------|
 | ⌃` | opens the square, the light on the app you used before this one; ⌃` again moves the light on, ⌃⇧` back |
+| ⌃ held alone for 3 s | opens the square the same way (13.9.2026); any other key in the meantime, or letting go, means nothing |
 | ` or Tab | moves the light on; with ⇧ back |
 | ← → ↑ ↓ | walk the grid |
 | ⏎ | bring the lit app to the front, launching it if it is not running |
