@@ -30,7 +30,8 @@ local G = _G.DOCKGRID or {}
 _G.DOCKGRID = G
 
 local CELL, ICON, PAD = 132, 76, 20
-local CLOCK_W, CLOCK_H, CLOCK_UP = 520, 22, 64    -- the clock's line: width, height, how far above the screen's bottom
+local CLOCK_W, CLOCK_H, CLOCK_UP = 760, 36, 100   -- the clock's line: width, height, how far above the screen's bottom
+local CLOCK_SIZE = 22                             -- 13.9.2026: at 14 points on the 2560-wide BenQ the line was lost against Live's bottom bar
 
 local function clockText()
     return os.date("%H:%M   %A   ") .. tostring(tonumber(os.date("%d"))) .. os.date(" %B %Y")
@@ -126,8 +127,10 @@ function G.showClock()
             c = hs.canvas.new(frame)
             c:level(hs.canvas.windowLevels.popUpMenu)
             c:behavior(hs.canvas.windowBehaviors.canJoinAllSpaces)
-            c[1] = { type = "text", text = clockText(), textSize = 14, textFont = "Menlo",
-                     textColor = { white = 1, alpha = 0.95 }, textAlignment = "center",
+            -- white letters, nothing behind them, a soft dark shadow so they read on a light wallpaper too
+            c[1] = { type = "text", text = clockText(), textSize = CLOCK_SIZE, textFont = "Menlo-Bold",
+                     textColor = { white = 1, alpha = 0.97 }, textAlignment = "center",
+                     withShadow = true, shadow = { blurRadius = 6, color = { black = 1, alpha = 0.9 }, offset = { h = -1, w = 0 } },
                      frame = { x = 0, y = 0, w = CLOCK_W, h = CLOCK_H } }
             G.clocks[id] = c
         else
