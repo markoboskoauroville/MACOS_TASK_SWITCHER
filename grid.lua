@@ -27,29 +27,32 @@
 -- then "move the line with date time to center bottom of the screen". Then,
 -- 14.9.2026: "one on top of the other in the center view. So first I have a
 -- clock, which is the biggest font. Then I have date, which is the smallest font.
--- And then in the same small font, you give me weather three lines centered". So
--- while the square is open, a stack stands at the bottom centre of every screen,
--- above the Dock, every line centred, white outlined in black on nothing:
+-- And then in the same small font, you give me weather", "weather data should be
+-- one line", and "instead of outline, put a half-transparent black frame behind
+-- the letters so I can read them on white background". So while the square is
+-- open, a stack stands at the bottom centre of every screen, above the Dock,
+-- every line centred, white letters on a half-transparent black plate:
 --
 --                          08:01:12                 the clock, big, the seconds moving
 --                  Monday, 14 September 2026        the date, small
---                         19° – 23°                 the weather, two small lines (14.9.2026, "arrange 87%.
---                          rain  87%                Must be in one line, not in two lines")
+--                    19° – 23°   rain   87%         the weather, one small line
 --
 -- It is its own small canvas per screen, shown and hidden with the square.
 --
 --     .extra()            set by the owner: the small lines under the date, a list of strings,
---                         or nothing (14.9.2026: today's weather, { "19° – 23°", "rain  87%" })
+--                         or nothing (14.9.2026: today's weather, { "19° – 23°   rain   87%" })
 
 local G = _G.DOCKGRID or {}
 _G.DOCKGRID = G
 
 local CELL, ICON, PAD = 132, 76, 20
-local CLOCK_W, CLOCK_BOTTOM = 760, 48            -- the clock's stack: width, how far its last line stands above the screen's bottom
+local CLOCK_W, CLOCK_BOTTOM = 760, 48            -- the clock's canvas: width, how far the plate stands above the screen's bottom
 local BIG, SMALL = 48, 18                        -- the clock's size and the small lines' (13.9.2026: at 14 points on the 2560-wide BenQ a line was lost against Live's bottom bar)
 local BIG_H, SMALL_H, GAP = 58, 24, 4            -- line heights and the breath between the date and the weather
+local PLATE_PAD_X, PLATE_PAD_Y, PLATE_RADIUS = 28, 10, 16   -- the black plate around the letters
+local MENLO_EM = 0.61                            -- Menlo's advance, in ems: the plate is measured from the longest line
 
--- 13.9.2026, once he saw it: "non-bold font, it's supposed to show seconds, and the font should be outlined"
+-- 13.9.2026, once he saw it: "non-bold font, it's supposed to show seconds"
 local function clockText() return os.date("%H:%M:%S") end
 local function dateText() return os.date("%A, ") .. tostring(tonumber(os.date("%d"))) .. os.date(" %B %Y") end
 
@@ -64,23 +67,34 @@ local function styled(text, size)
     return hs.styledtext.new(text, {
         font = { name = "Menlo", size = size },
         color = { white = 1, alpha = 0.97 },
-        strokeColor = { black = 1, alpha = 0.95 }, strokeWidth = size > SMALL and -3.5 or -2.5,    -- negative: the letters are filled AND outlined; the big clock a little thicker
         paragraphStyle = { alignment = "center" },
     })
 end
 
--- the stack's elements: the clock, the date, the small lines; and its height
+local function width(text, size) return (utf8.len(text) or #text) * size * MENLO_EM end
+
+-- the stack's elements: the plate, the clock, the date, the small lines; and the canvas's height.
+-- The plate is as wide as the longest line plus its padding, so it hugs the letters.
+local CLOCK_AT = 2                               -- the clock's element, moved by the timer
 local function clockElements()
+    local lines = extraLines()
+    local w = math.max(width(clockText(), BIG), width(dateText(), SMALL))
+    for _, line in ipairs(lines) do w = math.max(w, width(line, SMALL)) end
+    local pw = math.min(CLOCK_W, w + PLATE_PAD_X * 2)
+    local h = PLATE_PAD_Y + BIG_H + SMALL_H + (#lines > 0 and (GAP + #lines * SMALL_H) or 0) + PLATE_PAD_Y
     local els = {
-        { type = "text", text = styled(clockText(), BIG), frame = { x = 0, y = 0, w = CLOCK_W, h = BIG_H } },
-        { type = "text", text = styled(dateText(), SMALL), frame = { x = 0, y = BIG_H, w = CLOCK_W, h = SMALL_H } },
+        { type = "rectangle", action = "fill", fillColor = { black = 1, alpha = 0.5 },
+          roundedRectRadii = { xRadius = PLATE_RADIUS, yRadius = PLATE_RADIUS },
+          frame = { x = (CLOCK_W - pw) / 2, y = 0, w = pw, h = h } },
+        { type = "text", text = styled(clockText(), BIG), frame = { x = 0, y = PLATE_PAD_Y, w = CLOCK_W, h = BIG_H } },
+        { type = "text", text = styled(dateText(), SMALL), frame = { x = 0, y = PLATE_PAD_Y + BIG_H, w = CLOCK_W, h = SMALL_H } },
     }
-    local y = BIG_H + SMALL_H + GAP
-    for _, line in ipairs(extraLines()) do
+    local y = PLATE_PAD_Y + BIG_H + SMALL_H + GAP
+    for _, line in ipairs(lines) do
         els[#els + 1] = { type = "text", text = styled(line, SMALL), frame = { x = 0, y = y, w = CLOCK_W, h = SMALL_H } }
         y = y + SMALL_H
     end
-    return els, y
+    return els, h
 end
 
 local DRAG_START = 6                               -- points the mouse must travel before a press is a drag
@@ -237,7 +251,7 @@ function G.show(items, lit)
     return "grid " .. n .. " on " .. #hs.screen.allScreens() .. " screens"
 end
 
--- the clock's stack at the bottom centre of every screen, white on nothing, while the square is open
+-- the clock's stack at the bottom centre of every screen, white on a half-transparent black plate, while the square is open
 function G.showClock()
     G.clocks = G.clocks or {}
     local seen = {}
@@ -265,7 +279,7 @@ function G.showClock()
     if not G.clockTimer then                                    -- the seconds move while the square is open
         G.clockTimer = hs.timer.doEvery(1, function()
             local t = styled(clockText(), BIG)
-            for _, c in pairs(G.clocks or {}) do c[1].text = t end
+            for _, c in pairs(G.clocks or {}) do c[CLOCK_AT].text = t end
             if G.extraCount ~= #extraLines() then G.showClock() end   -- the weather arrived: the stack grows
         end)
     end

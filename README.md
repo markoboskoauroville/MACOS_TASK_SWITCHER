@@ -29,20 +29,19 @@ The square stays open until you choose or close it (Marko, 10.9.2026: "it should
 press escape or click out of it ... control + tick opens it, and then tick is selecting and enter is
 activating the app. Or mouse is activating the app"). Letting go of ⌃ means nothing.
 
-- **A clock at the bottom centre of every screen** while the square is open (13.9.2026), white letters
-  outlined in black on nothing, so a glance at the switcher is a glance at the clock. Since 14.9.2026 it is a
-  stack, every line centred ("one on top of the other in the center view. So first I have a clock, which is
-  the biggest font. Then I have date, which is the smallest font. And then in the same small font, you give
-  me weather three lines centered"):
+- **A clock at the bottom centre of every screen** while the square is open (13.9.2026), white letters on a
+  half-transparent black plate, so a glance at the switcher is a glance at the clock and the letters read on
+  a white window too. Since 14.9.2026 it is a stack, every line centred ("one on top of the other in the
+  center view. So first I have a clock, which is the biggest font. Then I have date, which is the smallest
+  font. And then in the same small font, you give me weather", "weather data should be one line"):
 
         09:08:36
         Monday, 14 September 2026
-        19° – 23°
-        rain  87%
+        19° – 23°   rain   87%
 
-- **Today's weather, the two small lines** (the word and the chance share a line since "arrange 87%. Must be in one line, not in two lines") (14.9.2026, "once a day, first time when it is started a call to
-  some weather service ... minimum temperature / maximum temperature and one word: sunny, cloudy, rain,
-  18%, 20%"): the lowest and highest temperature of the day, one word for the sky (sunny, cloudy, fog,
+- **Today's weather, the small line under the date** (14.9.2026, "once a day, first time when it is started a
+  call to some weather service ... minimum temperature / maximum temperature and one word: sunny, cloudy,
+  rain, 18%, 20%"): the lowest and highest temperature of the day, one word for the sky (sunny, cloudy, fog,
   drizzle, rain, showers, snow, storm) and the highest chance of rain. The forecast comes from KNMI, the
   Dutch national weather service, whose Harmonie model covers Europe and is served by Open-Meteo without a
   key (`weather.lua`); where KNMI has nothing, Open-Meteo's best model for the place answers instead. It is
