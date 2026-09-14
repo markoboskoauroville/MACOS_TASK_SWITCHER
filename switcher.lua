@@ -36,6 +36,12 @@
 -- often they were opened, the most used first; apps never opened come last in
 -- the Dock's order. Every activation counts, from any road, through the
 -- application watcher; ~/.config/dock.json keeps the counts and the order.
+-- THE WEATHER (14.9.2026: "once a day, first time when it is started a call to
+-- some weather service ... weather in Netherlands service for Croatia ... minimum
+-- temperature / maximum temperature and one word: sunny, cloudy, rain, 18%, 20%"):
+-- weather.lua asks KNMI, the Dutch weather service, through Open-Meteo for today's
+-- forecast when the switcher starts and once more only when the day has turned;
+-- the clock line then reads  …14 September 2026   ·   18° – 23°   rain   87%.
 
 local M = { name = "Dock Switcher (⌃` opens the square of the Dock; ` selects, ⏎ or the mouse starts)", key = "dock" }
 _G.TASK_SWITCHER = M                                   -- reachable from hs -c and from the star's switch
@@ -43,6 +49,7 @@ _G.TASK_SWITCHER = M                                   -- reachable from hs -c a
 local HOME  = os.getenv("HOME")
 local HERE  = (debug.getinfo(1, "S").source:match("^@(.*/)") or (HOME .. "/Developer/MACOS_TASK_SWITCHER/"))
 local GRID  = HERE .. "grid.lua"
+local WEATHER = HERE .. "weather.lua"
 local PLIST = HOME .. "/Library/Preferences/com.apple.dock.plist"
 local STATE = HOME .. "/.config/dock.json"
 local DEFAULT_HOTKEY = "ctrl+`"
@@ -60,6 +67,14 @@ local tapClean, lastTap = false, 0
 local DOUBLE_DEFAULT = 0.4                  -- seconds between the two taps (Marko, 13.9.2026: "double tap on the control button")
 
 local function grid() return dofile(GRID) end
+
+-- today's weather, or nothing when weather.lua is missing or broken: the square never waits for it
+local function weather()
+    local ok, w = pcall(dofile, WEATHER)
+    if ok and type(w) == "table" then return w end
+    if not ok then print("Dock Switcher: weather.lua failed to load: " .. tostring(w)) end
+    return { text = function() return "" end, refresh = function() end, daily = function() end, rows = function() return {} end }
+end
 
 -- ---------------------------------------------------------------- the settings file
 local function load()
@@ -289,7 +304,9 @@ local function step(dir)
         if #row < 2 then row = nil; return end
         lit = order and (((previousIndex(row) - 1 - dir) % #row) + 1) or 1   -- the step below lands on "back"
         cols = math.ceil(math.sqrt(#row))
-        local g = grid(); g.onPick = pick; g.onHover = hover; g.onDrop = drop
+        local w = weather()
+        w.daily()                                            -- a new day since the last fetch: today's forecast, while the square opens
+        local g = grid(); g.onPick = pick; g.onHover = hover; g.onDrop = drop; g.extra = w.text
         keyTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(e)
             local k = hs.keycodes.map[e:getKeyCode()]
             local shift = e:getFlags().shift and true or false
@@ -443,6 +460,7 @@ function M.start()
     watch()
     bind()
     ctrlBind()
+    weather().refresh(false)                               -- once a day: the first start of the day fetches today's forecast
     return true, "Dock Switcher on: " .. hotkeyText() .. " walks " .. n .. " apps; ⌃ tapped twice opens the square"
 end
 
@@ -463,7 +481,7 @@ if load().enabled then hs.timer.doAfter(1, function() M.start() end) end
 
 function M.menu()
     if not on then return nil end
-    return {
+    local rows = {
         { title = "Previous app now  (" .. hotkeyText() .. ")", fn = M.previous },
         { title = "Set the keyboard shortcut…  (" .. hotkeyText() .. ")", fn = askShortcut },
         { title = "A double tap on ⌃ alone opens the square", checked = doubleSeconds() > 0,
@@ -474,6 +492,10 @@ function M.menu()
         { title = "Read the Dock again  (" .. #apps .. " apps)", fn = function()
             hs.alert.show("Dock Switcher: " .. M.readDock() .. " apps", 2) end },
     }
+    for _, r in ipairs(weather().rows()) do rows[#rows + 1] = r end
+    return rows
 end
+
+function M.weather() return weather() end                -- for a test or a script: .text(), .refresh(true), .setPlace(name)
 
 return M

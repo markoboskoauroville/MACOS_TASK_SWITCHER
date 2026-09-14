@@ -28,17 +28,23 @@
 -- the square is open, a line stands at the bottom centre of every screen, above
 -- the Dock:  14:05:32   Sunday   13 September 2026, white outlined in black, the
 -- seconds moving. It is its own small canvas per screen, shown and hidden with the square.
+--
+--     .extra()            set by the owner: words to stand after the date on the clock's line,
+--                         or "" (14.9.2026: today's weather, "18° – 23°   rain   87%")
 
 local G = _G.DOCKGRID or {}
 _G.DOCKGRID = G
 
 local CELL, ICON, PAD = 132, 76, 20
-local CLOCK_W, CLOCK_H, CLOCK_UP = 760, 36, 100   -- the clock's line: width, height, how far above the screen's bottom
+local CLOCK_W, CLOCK_H, CLOCK_UP = 1100, 36, 100  -- the clock's line: width, height, how far above the screen's bottom (wider since the weather, 14.9.2026)
 local CLOCK_SIZE = 22                             -- 13.9.2026: at 14 points on the 2560-wide BenQ the line was lost against Live's bottom bar
 
 -- 13.9.2026, once he saw it: "non-bold font, it's supposed to show seconds, and the font should be outlined"
 local function clockText()
-    return os.date("%H:%M:%S   %A   ") .. tostring(tonumber(os.date("%d"))) .. os.date(" %B %Y")
+    local t = os.date("%H:%M:%S   %A   ") .. tostring(tonumber(os.date("%d"))) .. os.date(" %B %Y")
+    local ok, more = pcall(function() return G.extra and G.extra() end)
+    if ok and type(more) == "string" and more ~= "" then t = t .. "   ·   " .. more end
+    return t
 end
 
 local function clockStyled(text)
