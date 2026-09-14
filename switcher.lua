@@ -41,7 +41,7 @@
 -- temperature / maximum temperature and one word: sunny, cloudy, rain, 18%, 20%"):
 -- weather.lua asks KNMI, the Dutch weather service, through Open-Meteo for today's
 -- forecast when the switcher starts and once more only when the day has turned;
--- the clock line then reads  …14 September 2026   ·   18° – 23°   rain   87%.
+-- the clock's stack then ends with three small lines, 18° – 23°, rain, 87%.
 
 local M = { name = "Dock Switcher (⌃` opens the square of the Dock; ` selects, ⏎ or the mouse starts)", key = "dock" }
 _G.TASK_SWITCHER = M                                   -- reachable from hs -c and from the star's switch
@@ -73,7 +73,7 @@ local function weather()
     local ok, w = pcall(dofile, WEATHER)
     if ok and type(w) == "table" then return w end
     if not ok then print("Dock Switcher: weather.lua failed to load: " .. tostring(w)) end
-    return { text = function() return "" end, refresh = function() end, daily = function() end, rows = function() return {} end }
+    return { text = function() return "" end, lines = function() return {} end, refresh = function() end, daily = function() end, rows = function() return {} end }
 end
 
 -- ---------------------------------------------------------------- the settings file
@@ -306,7 +306,7 @@ local function step(dir)
         cols = math.ceil(math.sqrt(#row))
         local w = weather()
         w.daily()                                            -- a new day since the last fetch: today's forecast, while the square opens
-        local g = grid(); g.onPick = pick; g.onHover = hover; g.onDrop = drop; g.extra = w.text
+        local g = grid(); g.onPick = pick; g.onHover = hover; g.onDrop = drop; g.extra = w.lines
         keyTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(e)
             local k = hs.keycodes.map[e:getKeyCode()]
             local shift = e:getFlags().shift and true or false

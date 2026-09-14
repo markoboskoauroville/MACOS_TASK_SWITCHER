@@ -3,7 +3,7 @@
 **⌘Tab over everything on your Dock, running or not. ⌃` (or a double tap on ⌃) opens a square of your Dock's own icons in
 the middle of every screen at once, and it stays open: ` moves the light, ⏎ or a click brings the lit
 app to the front, or launches it; ⎋ or a click outside closes it. Q quits, H hides, and the order
-learns your habits. A clock with today's weather stands under it.**
+learns your habits. A clock, the date and today's weather stand under it.**
 
 Three Lua files, no server, no daemon, nothing running until you start it. Written for Marko Boško's
 Mac on 9.9.2026, from his words: "a launcher and switcher at the same time acting same as Command
@@ -29,19 +29,29 @@ The square stays open until you choose or close it (Marko, 10.9.2026: "it should
 press escape or click out of it ... control + tick opens it, and then tick is selecting and enter is
 activating the app. Or mouse is activating the app"). Letting go of ⌃ means nothing.
 
-- **A clock at the bottom centre of every screen** while the square is open (13.9.2026): the time with its seconds, the day, and the date as day month year, white letters outlined in black on nothing, so a glance at the switcher is a glance at the clock.
+- **A clock at the bottom centre of every screen** while the square is open (13.9.2026), white letters
+  outlined in black on nothing, so a glance at the switcher is a glance at the clock. Since 14.9.2026 it is a
+  stack, every line centred ("one on top of the other in the center view. So first I have a clock, which is
+  the biggest font. Then I have date, which is the smallest font. And then in the same small font, you give
+  me weather three lines centered"):
 
-- **Today's weather after the date** (14.9.2026, "once a day, first time when it is started a call to some weather
-  service ... minimum temperature / maximum temperature and one word: sunny, cloudy, rain, 18%, 20%"):
-  `07:55:16   Monday   14 September 2026   ·   18° – 23°   rain   87%`, the lowest and highest
-  temperature of the day, one word for the sky (sunny, cloudy, fog, drizzle, rain, showers, snow, storm)
-  and the highest chance of rain. The forecast comes from KNMI, the Dutch national weather service, whose
-  Harmonie model covers Europe and is served by Open-Meteo without a key (`weather.lua`); where KNMI has
-  nothing, Open-Meteo's best model for the place answers instead. It is fetched once a day: when the
-  switcher starts, and again only when the square opens on a new day. The place is Zagreb until
-  "Set the place for the weather…" in the settings names another (any town, geocoded by Open-Meteo);
-  "Weather today: …" shows the forecast, where it came from and when, and a click fetches it again.
-  Without a network the line shows only the clock and tries again ten minutes later at the earliest.
+        09:08:36
+        Monday, 14 September 2026
+        19° – 23°
+        rain
+        87%
+
+- **Today's weather, the three small lines** (14.9.2026, "once a day, first time when it is started a call to
+  some weather service ... minimum temperature / maximum temperature and one word: sunny, cloudy, rain,
+  18%, 20%"): the lowest and highest temperature of the day, one word for the sky (sunny, cloudy, fog,
+  drizzle, rain, showers, snow, storm) and the highest chance of rain. The forecast comes from KNMI, the
+  Dutch national weather service, whose Harmonie model covers Europe and is served by Open-Meteo without a
+  key (`weather.lua`); where KNMI has nothing, Open-Meteo's best model for the place answers instead. It is
+  fetched once a day: when the switcher starts, and again only when the square opens on a new day. The
+  place is Zagreb until "Set the place for the weather…" in the settings names another (any town, geocoded
+  by Open-Meteo); "Weather today: …" shows the forecast, where it came from and when, and a click fetches it
+  again. Without a network the stack is the clock and the date alone and tries again ten minutes later at
+  the earliest.
 
 - **The list is your Dock's.** Read from `~/Library/Preferences/com.apple.dock.plist`, `persistent-apps`,
   again whenever the Dock changes; Finder is added by hand because the Dock does not list it. The icons
@@ -84,8 +94,8 @@ changes the place from a script).
 ## Files
 
     switcher.lua     the whole switcher: the Dock list, the order, the keys, the mouse, the jump
-    grid.lua         the square: one canvas per screen, icons, names, dots, the lit cell, the clock line
-    weather.lua      today's weather for the clock line: KNMI through Open-Meteo, once a day, the place
+    grid.lua         the square: one canvas per screen, icons, names, dots, the lit cell, the clock's stack
+    weather.lua      today's weather for the clock's stack: KNMI through Open-Meteo, once a day, the place
     ~/.config/dock.json   your counts, your dragged order, your shortcut, today's weather (never in the repository)
 
 MIT licence. Built with Claude Code.
