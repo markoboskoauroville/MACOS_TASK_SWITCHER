@@ -3,9 +3,9 @@
 **⌘Tab over everything on your Dock, running or not. ⌃` (or a double tap on ⌃) opens a square of your Dock's own icons in
 the middle of every screen at once, and it stays open: ` moves the light, ⏎ or a click brings the lit
 app to the front, or launches it; ⎋ or a click outside closes it. Q quits, H hides, and the order
-learns your habits. A clock, the date and today's weather stand under it.**
+learns your habits. A clock, the date, today's weather and your next event stand under it.**
 
-Three Lua files, no server, no daemon, nothing running until you start it. Written for Marko Boško's
+Four Lua files, no server, no daemon, nothing running until you start it. Written for Marko Boško's
 Mac on 9.9.2026, from his words: "a launcher and switcher at the same time acting same as Command
 Tab, but can launch what is not launched ... a square menu in the middle of both screens ... when I
 pick the app it becomes first one ... it gets the icon exactly the same images like on the dock."
@@ -51,6 +51,19 @@ activating the app. Or mouse is activating the app"). Letting go of ⌃ means no
   again. Without a network the stack is the clock and the date alone and tries again ten minutes later at
   the earliest.
 
+- **The next event of a Google Calendar, a small line under the weather** (14.9.2026, "connect this app with my
+  Google Calendar ... display the title of my next event"): `12:00   12. NEWS` today, `Tue 15:00   15. NEWS` this
+  week, `24 Sep 12:00   12. NEWS` beyond, all-day events by their day. Hammerspoon has no Google account, so the
+  connection is the calendar's **secret address in iCal format** (Google Calendar, signed in as the calendar's
+  owner → Settings → Settings for my calendars → the calendar → Integrate calendar → Secret address in iCal
+  format): paste it into "Set the calendar's secret address…" in the settings. It is kept in `~/.config/dock.json`,
+  never shown again and never in this repository. The calendar is fetched when the switcher starts and when the
+  square opens a quarter of an hour or more after the last fetch; the coming ninety days of events are kept, so
+  the line moves on to the next event by itself. `calendar.lua` reads the .ics itself: single events, all-day
+  events, UTC times, series (daily, weekly with days, monthly, yearly, with interval, count and until), excluded
+  dates, and instances moved or removed from a series. "Next event: …" in the settings fetches again; "Forget
+  the calendar" takes the address out.
+
 - **The list is your Dock's.** Read from `~/Library/Preferences/com.apple.dock.plist`, `persistent-apps`,
   again whenever the Dock changes; Finder is added by hand because the Dock does not list it. The icons
   are the bundles' own, the very images the Dock draws.
@@ -87,13 +100,15 @@ The shortcut is words joined by plus in `~/.config/dock.json` (`"hotkey": "ctrl+
 any modifier will do. `"double"` is the longest gap between two taps on ⌃ (0.4; 0 turns it off);
 `"order"` is the list of bundle ids as you dragged them, absent while the order learns your habits;
 `"weather"` holds the place, its coordinates and today's forecast (`TASK_SWITCHER.weather().setPlace("Split")`
-changes the place from a script).
+changes the place from a script); `"calendar"` holds the secret address and the fetched events
+(`TASK_SWITCHER.calendar().setAddress(url)` from a script).
 
 ## Files
 
     switcher.lua     the whole switcher: the Dock list, the order, the keys, the mouse, the jump
     grid.lua         the square: one canvas per screen, icons, names, dots, the lit cell, the clock's stack
     weather.lua      today's weather for the clock's stack: KNMI through Open-Meteo, once a day, the place
+    calendar.lua     the next event for the clock's stack: a Google Calendar's secret iCal address, read here
     ~/.config/dock.json   your counts, your dragged order, your shortcut, today's weather (never in the repository)
 
 MIT licence. Built with Claude Code.

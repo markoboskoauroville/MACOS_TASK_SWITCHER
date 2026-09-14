@@ -41,7 +41,12 @@
 -- temperature / maximum temperature and one word: sunny, cloudy, rain, 18%, 20%"):
 -- weather.lua asks KNMI, the Dutch weather service, through Open-Meteo for today's
 -- forecast when the switcher starts and once more only when the day has turned;
--- the clock's stack then ends with three small lines, 18° – 23°, rain, 87%.
+-- the clock's stack then carries a small line, 18° – 23°   rain   87%.
+-- THE CALENDAR (14.9.2026: "connect this app with my Google Calendar ... display the
+-- title of my next event"): calendar.lua fetches the calendar's secret iCal address
+-- (set from the submenu, kept in ~/.config/dock.json) at start and when the square
+-- opens a quarter of an hour or more after the last fetch; the line under the
+-- weather is the next event, 12:00   12. NEWS.
 
 local M = { name = "Dock Switcher (⌃` opens the square of the Dock; ` selects, ⏎ or the mouse starts)", key = "dock" }
 _G.TASK_SWITCHER = M                                   -- reachable from hs -c and from the star's switch
@@ -50,6 +55,7 @@ local HOME  = os.getenv("HOME")
 local HERE  = (debug.getinfo(1, "S").source:match("^@(.*/)") or (HOME .. "/Developer/MACOS_TASK_SWITCHER/"))
 local GRID  = HERE .. "grid.lua"
 local WEATHER = HERE .. "weather.lua"
+local CALENDAR = HERE .. "calendar.lua"
 local PLIST = HOME .. "/Library/Preferences/com.apple.dock.plist"
 local STATE = HOME .. "/.config/dock.json"
 local DEFAULT_HOTKEY = "ctrl+`"
@@ -74,6 +80,22 @@ local function weather()
     if ok and type(w) == "table" then return w end
     if not ok then print("Dock Switcher: weather.lua failed to load: " .. tostring(w)) end
     return { text = function() return "" end, lines = function() return {} end, refresh = function() end, daily = function() end, rows = function() return {} end }
+end
+
+-- the next event of his Google Calendar, or nothing when calendar.lua is missing or broken
+local function calendar()
+    local ok, c = pcall(dofile, CALENDAR)
+    if ok and type(c) == "table" then return c end
+    if not ok then print("Dock Switcher: calendar.lua failed to load: " .. tostring(c)) end
+    return { lines = function() return {} end, refresh = function() end, stale = function() end, rows = function() return {} end }
+end
+
+-- the small lines under the date: today's weather, then the next event
+local function extraLines()
+    local lines = {}
+    for _, l in ipairs(weather().lines()) do lines[#lines + 1] = l end
+    for _, l in ipairs(calendar().lines()) do lines[#lines + 1] = l end
+    return lines
 end
 
 -- ---------------------------------------------------------------- the settings file
@@ -304,9 +326,9 @@ local function step(dir)
         if #row < 2 then row = nil; return end
         lit = order and (((previousIndex(row) - 1 - dir) % #row) + 1) or 1   -- the step below lands on "back"
         cols = math.ceil(math.sqrt(#row))
-        local w = weather()
-        w.daily()                                            -- a new day since the last fetch: today's forecast, while the square opens
-        local g = grid(); g.onPick = pick; g.onHover = hover; g.onDrop = drop; g.extra = w.lines
+        weather().daily()                                    -- a new day since the last fetch: today's forecast, while the square opens
+        calendar().stale()                                   -- a quarter of an hour since the last fetch: the calendar again
+        local g = grid(); g.onPick = pick; g.onHover = hover; g.onDrop = drop; g.extra = extraLines
         keyTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(e)
             local k = hs.keycodes.map[e:getKeyCode()]
             local shift = e:getFlags().shift and true or false
@@ -461,6 +483,7 @@ function M.start()
     bind()
     ctrlBind()
     weather().refresh(false)                               -- once a day: the first start of the day fetches today's forecast
+    calendar().refresh(false)                              -- the calendar, if its address is set
     return true, "Dock Switcher on: " .. hotkeyText() .. " walks " .. n .. " apps; ⌃ tapped twice opens the square"
 end
 
@@ -493,9 +516,11 @@ function M.menu()
             hs.alert.show("Dock Switcher: " .. M.readDock() .. " apps", 2) end },
     }
     for _, r in ipairs(weather().rows()) do rows[#rows + 1] = r end
+    for _, r in ipairs(calendar().rows()) do rows[#rows + 1] = r end
     return rows
 end
 
 function M.weather() return weather() end                -- for a test or a script: .text(), .refresh(true), .setPlace(name)
+function M.calendar() return calendar() end              -- .lines(), .refresh(true), .setAddress(url)
 
 return M

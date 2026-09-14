@@ -36,11 +36,12 @@
 --                          08:01:12                 the clock, big, the seconds moving
 --                  Monday, 14 September 2026        the date, small
 --                    19° – 23°   rain   87%         the weather, one small line
+--                     12:00   12. NEWS              the next event of his calendar, one small line (14.9.2026)
 --
 -- It is its own small canvas per screen, shown and hidden with the square.
 --
 --     .extra()            set by the owner: the small lines under the date, a list of strings,
---                         or nothing (14.9.2026: today's weather, { "19° – 23°   rain   87%" })
+--                         or nothing (14.9.2026: today's weather and the next event, { "19° – 23°   rain   87%", "12:00   12. NEWS" })
 
 local G = _G.DOCKGRID or {}
 _G.DOCKGRID = G
@@ -280,10 +281,10 @@ function G.showClock()
         G.clockTimer = hs.timer.doEvery(1, function()
             local t = styled(clockText(), BIG)
             for _, c in pairs(G.clocks or {}) do c[CLOCK_AT].text = t end
-            if G.extraCount ~= #extraLines() then G.showClock() end   -- the weather arrived: the stack grows
+            if G.extraKey ~= table.concat(extraLines(), "\n") then G.showClock() end   -- the weather or the calendar arrived, or the next event changed: the stack is drawn again
         end)
     end
-    G.extraCount = #extraLines()
+    G.extraKey = table.concat(extraLines(), "\n")
 end
 
 -- is a point (the mouse, in screen coordinates) inside any of the squares
