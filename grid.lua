@@ -33,14 +33,13 @@
 --
 --                          08:01:12                 the clock, big, the seconds moving
 --                  Monday, 14 September 2026        the date, small
---                         19° – 23°                 the weather, three small lines
---                            rain
---                            87%
+--                         19° – 23°                 the weather, two small lines (14.9.2026, "arrange 87%.
+--                          rain  87%                Must be in one line, not in two lines")
 --
 -- It is its own small canvas per screen, shown and hidden with the square.
 --
 --     .extra()            set by the owner: the small lines under the date, a list of strings,
---                         or nothing (14.9.2026: today's weather, { "19° – 23°", "rain", "87%" })
+--                         or nothing (14.9.2026: today's weather, { "19° – 23°", "rain  87%" })
 
 local G = _G.DOCKGRID or {}
 _G.DOCKGRID = G

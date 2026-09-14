@@ -38,10 +38,9 @@ activating the app. Or mouse is activating the app"). Letting go of ⌃ means no
         09:08:36
         Monday, 14 September 2026
         19° – 23°
-        rain
-        87%
+        rain  87%
 
-- **Today's weather, the three small lines** (14.9.2026, "once a day, first time when it is started a call to
+- **Today's weather, the two small lines** (the word and the chance share a line since "arrange 87%. Must be in one line, not in two lines") (14.9.2026, "once a day, first time when it is started a call to
   some weather service ... minimum temperature / maximum temperature and one word: sunny, cloudy, rain,
   18%, 20%"): the lowest and highest temperature of the day, one word for the sky (sunny, cloudy, fog,
   drizzle, rain, showers, snow, storm) and the highest chance of rain. The forecast comes from KNMI, the

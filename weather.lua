@@ -19,7 +19,7 @@
 -- at the earliest, and until then the line shows nothing of the weather.
 --
 --     .text()             "18° – 23°   rain   87%" for today, or "" (nothing yet, or not today's)
---     .lines()            the same as three lines for the clock's stack, { "18° – 23°", "rain", "87%" }, or {}
+--     .lines()            the same as two lines for the clock's stack, { "18° – 23°", "rain  87%" }, or {}
 --     .refresh(force)     fetch now if today's is missing (or force); asynchronous
 --     .place()            the place's name
 --     .setPlace(name)     find the place (Open-Meteo's geocoder), remember it, fetch
@@ -90,12 +90,14 @@ function W.place() return placeOf(state()).name end
 -- ---------------------------------------------------------------- the line
 local function degrees(v) return tostring(math.floor(tonumber(v) + 0.5)) .. "°" end
 
+-- 14.9.2026, once he saw the three lines: "arrange 87%. Must be in one line, not in two lines":
+-- the word and the chance of rain share the second line
 function W.lines()
     local w = state()
     if w.day ~= today() or type(w.min) ~= "number" or type(w.max) ~= "number" then return {} end
-    local t = { degrees(w.min) .. " – " .. degrees(w.max), w.word or "cloudy" }
-    if type(w.chance) == "number" then t[3] = tostring(math.floor(w.chance + 0.5)) .. "%" end
-    return t
+    local sky = w.word or "cloudy"
+    if type(w.chance) == "number" then sky = sky .. "  " .. tostring(math.floor(w.chance + 0.5)) .. "%" end
+    return { degrees(w.min) .. " – " .. degrees(w.max), sky }
 end
 
 function W.text() return table.concat(W.lines(), "   ") end
