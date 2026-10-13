@@ -78,6 +78,20 @@ activating the app. Or mouse is activating the app"). Letting go of ⌃ means no
   light on the app you used before this one, so ⏎ is still "back". "Learn the order from my habits
   again" in the settings forgets it (13.9.2026).
 
+## The Swift app (13.10.2026): Dock Switcher (Mantra)
+
+Marko, 13.10.2026: "We are quitting the Lua, no more Lua, only Swift." The same switcher is now a native app,
+`/Applications/Dock Switcher (Mantra).app` (`app/`, built and signed "Mantra Apps" by `./build.sh`, the icon drawn by
+`icon/make_icon.swift` with the version). Everything above holds, from the same `~/.config/dock.json`: the square on
+every screen, ⌃` / ⌃⇧`, ⌃ tapped twice, the keys inside the square, hover, click, drag, the learned or dragged order,
+the clock's stack with today's weather (KNMI through Open-Meteo) and the next calendar event, and Resolve's companions
+from `~/.config/star-launch.json` (rows of the Swift star, `~/.config/star-rows.json`: a Swift app is opened, a Lua
+one started through `hs`). The settings are its window (the star opens and quits the app; closing the window leaves
+the switcher working). It needs Accessibility once, for the double tap on ⌃. A test or a script opens and closes the
+square with the distributed notifications `community.auroville.dockswitcher.step` and `.close`.
+
+The Lua files stay until Marko has tried the Swift app; then they go.
+
 ## Install
 
 Hammerspoon with Accessibility permission. Then:

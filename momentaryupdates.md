@@ -5,4 +5,6 @@
 
 Marko 13.10.2026: convert to Swift (no more Lua). switcher.lua, grid.lua, weather.lua, calendar.lua and the star's
 apps/dock.lua (the Resolve companions) become "Dock Switcher (Mantra).app" (app/ beside the Lua; the Lua stays until
-Marko confirms). **Status:** in progress.
+Marko confirms). **Status:** built v1 13.10.2026, "Dock Switcher (Mantra).app": the settings window and the square (15 apps,
+icons, names, dots, the lit cell; the clock, date and weather plate) verified by screenshot, opened and closed from outside;
+the front app stayed in front. Marko to try with the Lua dock off in the star (both answer ⌃` while both run).
