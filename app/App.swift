@@ -10,7 +10,7 @@ import SwiftUI
 import AppKit
 import Carbon.HIToolbox
 
-let VERSION = 1
+let VERSION = 2
 let RELEASES = "https://github.com/markoboskoauroville/MACOS_TASK_SWITCHER/releases/latest"
 let DEFAULT_HOTKEY = "ctrl+`"
 let DOUBLE_DEFAULT = 0.4
@@ -368,7 +368,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.contentView = NSHostingView(rootView: SettingsView(s: SWITCHER))
         window.setContentSize(window.contentView!.fittingSize)
         window.center()
-        show()
+        // v2 (18.10.2026): brought back by the star at login (--login), the switcher works and its window waits
+        if !CommandLine.arguments.contains("--login") { show() }
     }
     func applicationShouldHandleReopen(_ s: NSApplication, hasVisibleWindows: Bool) -> Bool { show(); return true }
     func applicationShouldTerminateAfterLastWindowClosed(_ s: NSApplication) -> Bool { false }
