@@ -126,3 +126,9 @@ changes the place from a script); `"calendar"` holds the secret address and the 
     ~/.config/dock.json   your counts, your dragged order, your shortcut, today's weather (never in the repository)
 
 MIT licence. Built with Claude Code.
+
+**ON / OFF and ✕ (v4, 19.10.2026).** The first row of the window is DOCK SWITCHER ON / OFF (Marko: "In the top of every
+user interface, there will now be an on/off switch"). Running is ON; OFF closes the square if it is open, gives ⌃` back
+and quits the app (the ⌃⌃ tap goes with it). A ✕ at the far upper right of that row closes the window only and the
+switcher keeps working (Marko: "please unify the position of the close button on every application. It's far upper
+right corner"); the star's open brings the window back, and `--login` still starts it without one.

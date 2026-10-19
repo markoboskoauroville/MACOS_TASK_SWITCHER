@@ -10,7 +10,7 @@ import SwiftUI
 import AppKit
 import Carbon.HIToolbox
 
-let VERSION = 3
+let VERSION = 4
 let RELEASES = "https://github.com/markoboskoauroville/MACOS_TASK_SWITCHER/releases/latest"
 let DEFAULT_HOTKEY = "ctrl+`"
 let DOUBLE_DEFAULT = 0.4
@@ -243,6 +243,8 @@ final class Switcher: ObservableObject {
         said = hotkeyOK ? "\(hotkeyText()) walks the Dock" : "\(hotkeyText()) is held by another app (the Lua switcher?); tried again every 2 s"
     }
     func doubleSeconds() -> Double { let v = Store.load()["double"]; return v == nil ? DOUBLE_DEFAULT : (num(v) ?? 0) }
+    // v4 (19.10.2026), OFF: the square closes, ⌃` is given back, and the app quits (the event tap goes with the process)
+    func off() { if row != nil { cancel() }; keys.unbind(); NSApp.terminate(nil) }
     func toggleDouble() { let on = doubleSeconds() > 0; Store.update { $0["double"] = on ? 0 : DOUBLE_DEFAULT }; tick += 1 }
 }
 
@@ -251,6 +253,15 @@ struct Word: View {
     var body: some View {
         Text(text).font(.system(size: 13, weight: .bold, design: .monospaced)).foregroundColor(on ? GREEN : GREY)
             .padding(.horizontal, 6).padding(.vertical, 4).contentShape(Rectangle()).onTapGesture(perform: action)
+    }
+}
+// v4: ✕ at the far upper right closes the window only; the switcher stays ON (Marko, 19.10.2026: "please unify the
+// position of the close button on every application. It's far upper right corner")
+struct CloseX: View {
+    var body: some View {
+        Image(systemName: "xmark").font(.system(size: 14, weight: .semibold)).foregroundColor(GREY)
+            .frame(width: 28, height: 28).contentShape(Rectangle()).onTapGesture { NSApp.keyWindow?.performClose(nil) }
+            .help("Close the window; the switcher stays on")
     }
 }
 struct Head: View {
@@ -272,6 +283,16 @@ struct SettingsView: View {
     var body: some View {
         let _ = s.tick
         VStack(alignment: .leading, spacing: 14) {
+            // v4: the first row is ON / OFF (Marko, 19.10.2026: "In the top of every user interface, there will now be an
+            // on/off switch"; MANTRA_MANIFEST swift-apps.md). Running is ON; OFF stops the switcher and quits the app.
+            HStack(spacing: 4) {
+                Text("DOCK SWITCHER").font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundColor(GREY)
+                Word(text: "ON", on: true) {}
+                Word(text: "OFF", on: false) { s.off() }
+                Spacer()
+                Text("v\(VERSION)").font(.system(size: 11, design: .monospaced)).foregroundColor(GREY).onTapGesture { NSWorkspace.shared.open(URL(string: RELEASES)!) }
+                CloseX()
+            }
             Head(name: "THE SQUARE", value: "\(s.hotkeyText().uppercased()) · \(s.dock.apps.count) APPS")
             HStack(spacing: 0) {
                 Word(text: "PREVIOUS APP NOW", on: false) { s.previous() }
@@ -343,7 +364,6 @@ struct SettingsView: View {
                     .font(.system(size: 11)).foregroundColor(AMBER).fixedSize(horizontal: false, vertical: true)
             }
             if !s.said.isEmpty { Text(s.said).font(.system(size: 11, design: .monospaced)).foregroundColor(GREY).fixedSize(horizontal: false, vertical: true) }
-            HStack { Spacer(); Text("v\(VERSION)").font(.system(size: 11, design: .monospaced)).foregroundColor(GREY).onTapGesture { NSWorkspace.shared.open(URL(string: RELEASES)!) } }
         }
         .padding(24).frame(width: 560).background(INK).preferredColorScheme(.dark)
         .onAppear { keyText = s.hotkeyText(); placeText = s.weather.place().name }

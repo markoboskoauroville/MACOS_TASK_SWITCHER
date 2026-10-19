@@ -25,4 +25,4 @@ The first row of the window is ON / OFF: running is ON, OFF stops the app and qu
 
 And a ✕ at the window's top-right corner, on the ON / OFF row: it closes the window only, the app stays ON.
 
-**Status:** saved before any code.
+**Status:** built v4 19.10.2026: the first row is DOCK SWITCHER ON / OFF, v4 and ✕ at the far right (checked by screenshot, ⌃` still "ours"). OFF closes the square, unbinds ⌃` and quits (NSApp.terminate). ✕ closes the window (performClose), the switcher stays ON; closing already left it working and the reopen already brought the window back (v2). Restarted: pid 5049 → 23643 (window shown for the screenshot) → 23763, started again with --login as it was found, no window. Marko to try ✕ and OFF.
