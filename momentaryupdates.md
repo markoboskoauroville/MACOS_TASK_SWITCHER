@@ -21,4 +21,8 @@ the front app stayed in front. Marko to try with the Lua dock off in the star (b
 
 The first row of the window is ON / OFF: running is ON, OFF stops the app and quits it. Closing the window leaves it ON; the star's open brings the window back.
 
+> "please unify the position of the close button on every application. It's far upper right corner. There is X to close the dialog in every dialog, same." (Marko, 19.10.2026)
+
+And a ✕ at the window's top-right corner, on the ON / OFF row: it closes the window only, the app stays ON.
+
 **Status:** saved before any code.
