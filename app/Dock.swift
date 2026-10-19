@@ -29,7 +29,7 @@ final class DockList {
     }
 
     private func tiles() -> [[String: Any]] {
-        if let a = CFPreferencesCopyAppValue("persistent-apps" as CFString, "com.apple.dock" as CFString) as? [[String: Any]] { return a }
+        if let a = CFPreferencesCopyAppValue("persistent-apps" as CFString, "com.apple.dock" as CFString) as? [[String: Any]], !a.isEmpty { return a }
         let url = URL(fileURLWithPath: HOME + "/Library/Preferences/com.apple.dock.plist")
         guard let d = try? Data(contentsOf: url), let p = try? PropertyListSerialization.propertyList(from: d, format: nil) as? [String: Any] else { return [] }
         return p["persistent-apps"] as? [[String: Any]] ?? []
@@ -61,7 +61,7 @@ final class DockList {
         let now = tiles().compactMap { (($0["tile-data"] as? [String: Any])?["file-data"] as? [String: Any])?["_CFURLString"] as? String }
         let sig = (["/System/Library/CoreServices/Finder.app"] + now.map { s -> String in
             var p = URL(string: s)?.path ?? s; if p.hasSuffix("/") && p.count > 1 { p.removeLast() }; return p }).joined(separator: "|")
-        if sig != signature { readDock() }
+        if sig != signature || apps.count < 2 { readDock() }       // at boot the Dock's list can come late
     }
 
     func byId(_ id: String?) -> DockApp? { guard let id = id else { return nil }; return apps.first { $0.id == id } }

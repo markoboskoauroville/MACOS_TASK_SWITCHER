@@ -89,6 +89,9 @@ final class CtrlTap {
         return true
     }
 
+    // a tap macOS switched off (at boot, after sleep) is switched on again every 2 s
+    func wake() { if let t = tap, !CGEvent.tapIsEnabled(tap: t) { CGEvent.tapEnable(tap: t, enable: true) } }
+
     func handle(_ type: CGEventType, _ ev: CGEvent) {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput { if let t = tap { CGEvent.tapEnable(tap: t, enable: true) }; return }
         if type == .keyDown { clean = false; lastTap = 0; return }

@@ -10,7 +10,7 @@ import SwiftUI
 import AppKit
 import Carbon.HIToolbox
 
-let VERSION = 2
+let VERSION = 3
 let RELEASES = "https://github.com/markoboskoauroville/MACOS_TASK_SWITCHER/releases/latest"
 let DEFAULT_HOTKEY = "ctrl+`"
 let DOUBLE_DEFAULT = 0.4
@@ -75,7 +75,7 @@ final class Switcher: ObservableObject {
         tapOK = ctrl.start()
         Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             guard let self = self else { return }
-            if !self.ctrl.running { self.tapOK = self.ctrl.start() }
+            if !self.ctrl.running { self.tapOK = self.ctrl.start() } else { self.ctrl.wake() }
             if self.keys.bound != self.hotkeyText() { self.hotkeyOK = self.keys.bind(self.hotkeyText()) }   // held by another app: try again
             self.dock.followDock()
             self.tick += 1
@@ -94,7 +94,10 @@ final class Switcher: ObservableObject {
 
     func step(_ dir: Int) {
         if row == nil {
-            let r = dock.candidates()
+            var r = dock.candidates()
+            // v3 (19.10.2026): started by the star right after boot, the Dock's list was not there yet and only Finder
+            // was read, so every ⌃⌃ ended here in silence; read the Dock again before giving up
+            if r.count < 2 { dock.readDock(); r = dock.candidates() }
             guard r.count >= 2 else { return }
             row = r
             lit = dock.order != nil ? ((dock.previousIndex(r) - dir) % r.count + r.count) % r.count : 0   // the step below lands on "back"
