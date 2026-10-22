@@ -26,3 +26,11 @@ The first row of the window is ON / OFF: running is ON, OFF stops the app and qu
 And a ✕ at the window's top-right corner, on the ON / OFF row: it closes the window only, the app stays ON.
 
 **Status:** built v4 19.10.2026: the first row is DOCK SWITCHER ON / OFF, v4 and ✕ at the far right (checked by screenshot, ⌃` still "ours"). OFF closes the square, unbinds ⌃` and quits (NSApp.terminate). ✕ closes the window (performClose), the switcher stays ON; closing already left it working and the reopen already brought the window back (v2). Restarted: pid 5049 → 23643 (window shown for the screenshot) → 23763, started again with --login as it was found, no window. Marko to try ✕ and OFF.
+
+## 22.10.2026: the double Control is not heard until ⌃` has been used
+
+> "Another fix in the start menu for my dock switcher. It doesn't start up normally. It doesn't register my double control pressing. There is a bug. It registers double control pressing after I press control-t to switch applications, and then it's somehow started and then it recognizes double control. But before that, it doesn't. Please fix that bug." (Marko, 22.10.2026)
+
+After the Dock Switcher starts, a double tap on Control does nothing; once ⌃` has opened the switcher, the double tap works. It must work from the start.
+
+**Status:** asked.
