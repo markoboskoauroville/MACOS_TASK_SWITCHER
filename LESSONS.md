@@ -11,3 +11,6 @@
    had it and kept only Finder; the square needs two apps, so every ⌃⌃ ended in silence for the whole day (the tap and
    Accessibility were fine). CFPreferences can answer with an empty list rather than nil: an empty answer falls back to
    the plist file, and a list shorter than two is read again (every 2 s and at the press). A restart of the app hid it.
+4. (22.10.2026) A hidden app's windows and panels are never seen, `orderFrontRegardless` included. Started by `open -j`, an
+   LSUIElement app is hidden: the double-tap tap worked and the square was built out of sight. Unhide with
+   `NSApp.unhideWithoutActivation()` (the app in front keeps the keys) before showing anything.

@@ -10,7 +10,7 @@ import SwiftUI
 import AppKit
 import Carbon.HIToolbox
 
-let VERSION = 4
+let VERSION = 5
 let RELEASES = "https://github.com/markoboskoauroville/MACOS_TASK_SWITCHER/releases/latest"
 let DEFAULT_HOTKEY = "ctrl+`"
 let DOUBLE_DEFAULT = 0.4
@@ -93,6 +93,10 @@ final class Switcher: ObservableObject {
     func extraLines() -> [String] { weather.lines() + calendar.lines() }
 
     func step(_ dir: Int) {
+        // v5 (22.10.2026, Marko: "It doesn't register my double control pressing ... before that, it doesn't"): the star
+        // starts this app hidden (open -j … --login), and a hidden app's panels are never seen, so ⌃⌃ built the square
+        // out of sight. Unhidden without being activated: the app in front stays in front and keeps the keys.
+        if NSApp.isHidden { NSApp.unhideWithoutActivation() }
         if row == nil {
             var r = dock.candidates()
             // v3 (19.10.2026): started by the star right after boot, the Dock's list was not there yet and only Finder
@@ -393,6 +397,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.center()
         // v2 (18.10.2026): brought back by the star at login (--login), the switcher works and its window waits
         if !CommandLine.arguments.contains("--login") { show() }
+        else { NSApp.unhideWithoutActivation() }          // v5: not hidden, so the square can be seen from the first ⌃⌃
     }
     func applicationShouldHandleReopen(_ s: NSApplication, hasVisibleWindows: Bool) -> Bool { show(); return true }
     func applicationShouldTerminateAfterLastWindowClosed(_ s: NSApplication) -> Bool { false }
