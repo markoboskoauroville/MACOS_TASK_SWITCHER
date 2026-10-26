@@ -6,6 +6,10 @@
 //   GET /apps           the square's apps in the square's order: {"apps":[{"id","name","running","front"}]}
 //   GET /icon?id=<id>   the app's icon, PNG 192 px
 //   GET /open?id=<id>   switch to it, or start it: the square's own open(), companions included
+//   GET /menu           opens the menu bar of the app in front at its own menu (shown even when the bar hides itself);
+//                       the phone's arrows then walk it (Marko, 26.10.2026: "open my menu bar if it's hidden. With
+//                       arrows, I can navigate through the menu bar openings one by one, and then I can go down")
+//   GET /menuclose      closes every open menu of the app in front (AXCancel; a second press would not)
 //   GET /keys?after=N   the number of keys the Mac has seen (key downs and modifier changes, the ⌃⌃ tap's own events);
 //                       held up to 3 s until it passes N, so the phone knows the moment its key landed (Marko, 26.10.2026:
 //                       "it says not landed yet, but if you take a screenshot, it has landed")
@@ -95,6 +99,12 @@ final class Remote {
         case "/icon":
             guard let a = s.dock.byId(id) else { return missing }
             return ("200 OK", "image/png", icon(a))
+        case "/menu":
+            let ok = openMenu()
+            return (ok ? "200 OK" : "409 Conflict", "application/json", Data("{\"ok\":\(ok),\"trusted\":\(AXIsProcessTrusted())}".utf8))
+        case "/menuclose":
+            closeMenus()
+            return ("200 OK", "application/json", Data("{\"ok\":true}".utf8))
         case "/open":
             guard let a = s.dock.byId(id) else { return missing }
             if s.row != nil { s.close() }                        // the square, if it is open on the Mac, goes
@@ -102,6 +112,40 @@ final class Remote {
             return ("200 OK", "application/json", Data("{\"ok\":true}".utf8))
         default:
             return missing
+        }
+    }
+
+    // the front app's menu bar, its own menu (after the Apple menu), pressed by Accessibility. The press can wait until
+    // the menu closes, so it runs aside with a short timeout; the menu stays open for the arrows.
+    private func openMenu() -> Bool {
+        guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier else { return false }
+        let app = AXUIElementCreateApplication(pid)
+        var bar: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, kAXMenuBarAttribute as CFString, &bar) == .success, let menuBar = bar else { return false }
+        var kids: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(menuBar as! AXUIElement, kAXChildrenAttribute as CFString, &kids) == .success,
+              let items = kids as? [AXUIElement], !items.isEmpty else { return false }
+        let item = items[min(1, items.count - 1)]
+        DispatchQueue.global().async {
+            AXUIElementSetMessagingTimeout(item, 0.5)
+            AXUIElementPerformAction(item, kAXPressAction as CFString)
+        }
+        return true
+    }
+
+    private func closeMenus() {
+        guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier else { return }
+        let app = AXUIElementCreateApplication(pid)
+        var bar: CFTypeRef?, kids: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, kAXMenuBarAttribute as CFString, &bar) == .success, let b = bar,
+              AXUIElementCopyAttributeValue(b as! AXUIElement, kAXChildrenAttribute as CFString, &kids) == .success,
+              let items = kids as? [AXUIElement] else { return }
+        DispatchQueue.global().async {
+            for item in items {
+                var menus: CFTypeRef?
+                AXUIElementCopyAttributeValue(item, kAXChildrenAttribute as CFString, &menus)
+                for m in (menus as? [AXUIElement]) ?? [] { AXUIElementSetMessagingTimeout(m, 0.3); AXUIElementPerformAction(m, kAXCancelAction as CFString) }
+            }
         }
     }
 

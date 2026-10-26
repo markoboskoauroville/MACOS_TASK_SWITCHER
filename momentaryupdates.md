@@ -38,3 +38,6 @@ After the Dock Switcher starts, a double tap on Control does nothing; once ⌃` 
 **26.10.2026 (through Mantra Remote, the phone):**
 > And for the dock, we need a local dock, emulating the real one. Basically, you need to build a remote controller for my dock, so I'm not waiting for the dock and trying to find it on screen.
 > It should fill up my screen real estate on my phone with the same functions. Then I pick switching or starting, and that's it. It acts the same, but you need to make a special sister app for my dock, which runs from this user interface, please.
+
+**26.10.2026 (through Mantra Remote):**
+> now I need another feature which is going to open my menu bar if it's hidden. With arrows, I can navigate through the menu bar openings one by one, and then I can go down.
