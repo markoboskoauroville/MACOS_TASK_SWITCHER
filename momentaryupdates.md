@@ -41,3 +41,5 @@ After the Dock Switcher starts, a double tap on Control does nothing; once ⌃` 
 
 **26.10.2026 (through Mantra Remote):**
 > now I need another feature which is going to open my menu bar if it's hidden. With arrows, I can navigate through the menu bar openings one by one, and then I can go down.
+
+**Status, 26.10.2026:** done in v6 (Remote.swift: the phone's dock, the key count) and v7 (/menu, /menuclose by Accessibility); tested from Mantra Remote v9 on the phone.
