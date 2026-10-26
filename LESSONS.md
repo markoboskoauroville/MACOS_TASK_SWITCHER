@@ -14,3 +14,8 @@
 4. (22.10.2026) A hidden app's windows and panels are never seen, `orderFrontRegardless` included. Started by `open -j`, an
    LSUIElement app is hidden: the double-tap tap worked and the square was built out of sight. Unhide with
    `NSApp.unhideWithoutActivation()` (the app in front keeps the keys) before showing anything.
+- **(26.10.2026) A listener in a signed app on macOS 15 gets no connections from the home Wi-Fi** until Local Network
+  is allowed for it (TCP connects, nothing arrives); 127.0.0.1 and the Tailscale address (utun) work. Ask through
+  Tailscale, or have Marko allow it in System Settings → Privacy & Security → Local Network.
+- **pkill -f with "(Mantra)" in the pattern misses**: the parentheses are a regex group. Kill by `pgrep -f MacOS/DockSwitcher`.
+

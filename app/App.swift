@@ -10,7 +10,7 @@ import SwiftUI
 import AppKit
 import Carbon.HIToolbox
 
-let VERSION = 5
+let VERSION = 6
 let RELEASES = "https://github.com/markoboskoauroville/MACOS_TASK_SWITCHER/releases/latest"
 let DEFAULT_HOTKEY = "ctrl+`"
 let DOUBLE_DEFAULT = 0.4
@@ -50,6 +50,7 @@ final class Toast {
 
 final class Switcher: ObservableObject {
     let dock = DockList(), grid = Grid(), weather = Weather(), calendar = CalendarFeed(), keys = HotKeys(), ctrl = CtrlTap()
+    lazy var remote = Remote(self)
     var row: [DockApp]?
     var lit = 0, cols = 1
     var frontAtOpen: NSRunningApplication?
@@ -73,9 +74,11 @@ final class Switcher: ObservableObject {
         _ = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
         hotkeyOK = keys.bind(hotkeyText())
         tapOK = ctrl.start()
+        remote.start()                                           // v6: the phone's dock (Remote.swift, :8861)
         Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             if !self.ctrl.running { self.tapOK = self.ctrl.start() } else { self.ctrl.wake() }
+            self.remote.start()                                  // a listener that failed (port busy) is tried again
             if self.keys.bound != self.hotkeyText() { self.hotkeyOK = self.keys.bind(self.hotkeyText()) }   // held by another app: try again
             self.dock.followDock()
             self.tick += 1

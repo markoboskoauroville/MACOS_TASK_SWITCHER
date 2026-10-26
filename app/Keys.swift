@@ -94,6 +94,7 @@ final class CtrlTap {
 
     func handle(_ type: CGEventType, _ ev: CGEvent) {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput { if let t = tap { CGEvent.tapEnable(tap: t, enable: true) }; return }
+        if type == .keyDown || type == .flagsChanged { DispatchQueue.main.async { SWITCHER.remote.keySeen() } }   // v6: the phone's proof
         if type == .keyDown { clean = false; lastTap = 0; return }
         let f = ev.flags
         let others: CGEventFlags = [.maskCommand, .maskAlternate, .maskShift, .maskSecondaryFn]
