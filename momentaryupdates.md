@@ -34,3 +34,7 @@ And a ✕ at the window's top-right corner, on the ON / OFF row: it closes the w
 After the Dock Switcher starts, a double tap on Control does nothing; once ⌃` has opened the switcher, the double tap works. It must work from the start.
 
 **Status:** v5 22.10.2026. The cause: the star starts the app hidden (`open -j … --login`); the event tap heard every ⌃⌃ and the square was built, but a hidden app's panels are never seen (they appeared at once when the app was unhidden). v5 unhides without activating at a --login start and before every square. Reproduced on v4 and proven on v5 with synthetic Control taps: restarted hidden (pid 10621 → 10923), the first ⌃⌃ showed the square, the second closed it. Marko to try with his hand after the next login.
+
+**26.10.2026 (through Mantra Remote, the phone):**
+> And for the dock, we need a local dock, emulating the real one. Basically, you need to build a remote controller for my dock, so I'm not waiting for the dock and trying to find it on screen.
+> It should fill up my screen real estate on my phone with the same functions. Then I pick switching or starting, and that's it. It acts the same, but you need to make a special sister app for my dock, which runs from this user interface, please.
