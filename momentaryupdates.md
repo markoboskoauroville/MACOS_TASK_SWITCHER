@@ -43,3 +43,7 @@ After the Dock Switcher starts, a double tap on Control does nothing; once ⌃` 
 > now I need another feature which is going to open my menu bar if it's hidden. With arrows, I can navigate through the menu bar openings one by one, and then I can go down.
 
 **Status, 26.10.2026:** done in v6 (Remote.swift: the phone's dock, the key count) and v7 (/menu, /menuclose by Accessibility); tested from Mantra Remote v9 on the phone.
+
+> "Yes, build that." (Marko, 26.10.2026: the Mac unlocks a phone on its USB cable for Computer Remote)
+
+- v8: POST /unlock (name, PIN in the body): the phone of that model on the cable is woken, its PIN pad brought up, the PIN typed, then adb on TCP 5555 armed again; one try per 15 s, five failures pause 10 min; the PIN never kept or logged. Tested without a PIN: "no PIN"; an unknown phone: "not on this Mac's USB cable", also with the body in a second packet over Tailscale. Not yet with the real PIN (Marko types it in Computer Remote). — **Status:** built, running (pid restarted).

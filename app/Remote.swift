@@ -13,6 +13,11 @@
 //   GET /keys?after=N   the number of keys the Mac has seen (key downs and modifier changes, the ⌃⌃ tap's own events);
 //                       held up to 3 s until it passes N, so the phone knows the moment its key landed (Marko, 26.10.2026:
 //                       "it says not landed yet, but if you take a screenshot, it has landed")
+//   POST /unlock        body "name=PIXEL 7&pin=…": the phone of that model on this Mac's USB cable is woken, its PIN pad
+//                       brought up and the PIN typed, then its adb on TCP 5555 armed again, so the phone is reachable
+//                       through Tailscale (Marko, 26.10.2026: "Yes, build that": after a restart a phone is off
+//                       Tailscale until its first unlock, and only the cable reaches it). The PIN only in the body, never
+//                       kept or logged; one try per 15 s, five failures stop it for 10 minutes.
 import AppKit
 import Network
 
@@ -63,6 +68,21 @@ final class Remote {
             let parts = line.split(separator: " ")
             guard parts.count >= 2 else { self.reply(c, "400 Bad Request", "text/plain", Data()); return }
             let target = String(parts[1])
+            if parts[0] == "POST", target.hasPrefix("/unlock") {
+                let head = text.components(separatedBy: "\r\n\r\n").first ?? ""
+                let body = text.components(separatedBy: "\r\n\r\n").dropFirst().joined(separator: "\r\n\r\n")
+                let length = head.components(separatedBy: "\r\n").first { $0.lowercased().hasPrefix("content-length:") }
+                    .flatMap { Int($0.split(separator: ":")[1].trimmingCharacters(in: .whitespaces)) } ?? 0
+                // the body may come in a second packet after the headers (Android's HttpURLConnection writes twice)
+                if body.utf8.count < length {
+                    c.receive(minimumIncompleteLength: 1, maximumLength: 4096) { more, _, _, _ in
+                        self.unlockForm(c, body + (more.flatMap { String(data: $0, encoding: .utf8) } ?? ""))
+                    }
+                    return
+                }
+                self.unlockForm(c, body)
+                return
+            }
             if let u = URLComponents(string: target), u.path == "/keys" {
                 let after = Int(u.queryItems?.first { $0.name == "after" }?.value ?? "") ?? -1
                 if self.keys > after { self.reply(c, "200 OK", "application/json", Data("{\"keys\":\(self.keys)}".utf8)); return }
@@ -76,6 +96,65 @@ final class Remote {
             }
             let (status, type, body) = self.answer(target)
             self.reply(c, status, type, body)
+        }
+    }
+
+    // MARK: - a phone on this Mac's USB cable, unlocked with its PIN (POST /unlock)
+
+    private func unlockForm(_ c: NWConnection, _ body: String) {
+        var form: [String: String] = [:]
+        for pair in body.split(separator: "&") {
+            let kv = pair.split(separator: "=", maxSplits: 1).map { String($0).replacingOccurrences(of: "+", with: " ").removingPercentEncoding ?? String($0) }
+            if kv.count == 2 { form[kv[0]] = kv[1] }
+        }
+        unlock(name: form["name"] ?? "", pin: form["pin"] ?? "") { ok, note in
+            let j = (try? JSONSerialization.data(withJSONObject: ["ok": ok, "note": note])) ?? Data()
+            self.reply(c, ok ? "200 OK" : "409 Conflict", "application/json", j)
+        }
+    }
+
+    private var lastUnlock = Date.distantPast
+    private var failures = 0
+    private var pausedUntil = Date.distantPast
+    private let adb = NSHomeDirectory() + "/Library/Android/sdk/platform-tools/adb"
+
+    private func run(_ args: [String]) -> String {
+        let p = Process(); p.executableURL = URL(fileURLWithPath: adb); p.arguments = args
+        let out = Pipe(); p.standardOutput = out; p.standardError = Pipe()
+        guard (try? p.run()) != nil else { return "" }
+        p.waitUntilExit()
+        return String(data: out.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+    }
+
+    private func unlock(name: String, pin: String, done: @escaping (Bool, String) -> Void) {
+        let digits = pin.filter { $0.isNumber }
+        let now = Date()
+        if now < pausedUntil { done(false, "five wrong tries: paused until \(DateFormatter.localizedString(from: pausedUntil, dateStyle: .none, timeStyle: .short))"); return }
+        if now.timeIntervalSince(lastUnlock) < 15 { done(false, "one try per 15 seconds"); return }
+        if digits.isEmpty || digits.count > 16 { done(false, "no PIN"); return }
+        lastUnlock = now
+        DispatchQueue.global().async {
+            // the phone of that model among the devices on the cable (a serial without ':' is USB)
+            let want = name.uppercased().replacingOccurrences(of: " ", with: "")
+            let serials = self.run(["devices"]).split(separator: "\n").dropFirst()
+                .compactMap { l -> String? in let f = l.split(separator: "\t"); return f.count == 2 && f[1] == "device" && !f[0].contains(":") ? String(f[0]) : nil }
+            guard let serial = serials.first(where: { s in
+                self.run(["-s", s, "shell", "getprop", "ro.product.model"]).uppercased().replacingOccurrences(of: " ", with: "").contains(want) || want.isEmpty
+            }) else { DispatchQueue.main.async { done(false, "\(name) is not on this Mac's USB cable") }; return }
+            let locked = { self.run(["-s", serial, "shell", "dumpsys window | grep -m1 isKeyguardShowing"]).contains("=true") }
+            if locked() {
+                _ = self.run(["-s", serial, "shell", "input keyevent KEYCODE_WAKEUP; sleep 0.4; wm dismiss-keyguard; sleep 0.8; input text \(digits); sleep 0.2; input keyevent 66"])
+                Thread.sleep(forTimeInterval: 1.5)
+            }
+            let ok = !locked()
+            if ok { _ = self.run(["-s", serial, "tcpip", "5555"]) }      // the tunnel's port back (a restart loses it)
+            DispatchQueue.main.async {
+                if ok { self.failures = 0 } else {
+                    self.failures += 1
+                    if self.failures >= 5 { self.pausedUntil = Date().addingTimeInterval(600); self.failures = 0 }
+                }
+                done(ok, ok ? "\(name) unlocked, adb on 5555 again" : "the PIN did not open \(name)")
+            }
         }
     }
 
