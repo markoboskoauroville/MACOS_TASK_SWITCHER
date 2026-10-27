@@ -47,3 +47,10 @@ After the Dock Switcher starts, a double tap on Control does nothing; once ⌃` 
 > "Yes, build that." (Marko, 26.10.2026: the Mac unlocks a phone on its USB cable for Computer Remote)
 
 - v8: POST /unlock (name, PIN in the body): the phone of that model on the cable is woken, its PIN pad brought up, the PIN typed, then adb on TCP 5555 armed again; one try per 15 s, five failures pause 10 min; the PIN never kept or logged. Tested without a PIN: "no PIN"; an unknown phone: "not on this Mac's USB cable", also with the body in a second packet over Tailscale. Not yet with the real PIN (Marko types it in Computer Remote). — **Status:** built, running (pid restarted).
+
+## 27.10.2026: onto the Mac's port registry (MANTRA_PORTS v2)
+
+> please do rebuild and restart
+
+**Status:** v9: the door for Mantra Remote (TCP 8861, dialled by the phone) writes Dock Switcher into
+~/.config/mantra-ports.json as its owner once it listens. Rebuilt; not restarted, it was not running.

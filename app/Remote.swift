@@ -43,7 +43,12 @@ final class Remote {
         guard listener == nil, let port = NWEndpoint.Port(rawValue: REMOTE_PORT),
               let l = try? NWListener(using: .tcp, on: port) else { return }
         l.newConnectionHandler = { [weak self] c in self?.serve(c) }
-        l.stateUpdateHandler = { [weak self] st in if case .failed = st { self?.listener = nil } }   // tried again by the 2 s timer
+        l.stateUpdateHandler = { [weak self] st in
+            if case .failed = st { self?.listener = nil }                // tried again by the 2 s timer
+            // the phone dials 8861 by number, so it never moves: this app is written down as its one owner in the
+            // Mac's port registry (MANTRA_PORTS v2, 27.10.2026), and `mantra-ports check` names a stranger on it
+            if case .ready = st { Ports.record("remote", REMOTE_PORT, udp: false, health: "/apps") }
+        }
         l.start(queue: .main)
         listener = l
     }
