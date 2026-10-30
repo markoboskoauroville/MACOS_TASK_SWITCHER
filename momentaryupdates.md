@@ -54,3 +54,9 @@ After the Dock Switcher starts, a double tap on Control does nothing; once ⌃` 
 
 **Status:** v9: the door for Mantra Remote (TCP 8861, dialled by the phone) writes Dock Switcher into
 ~/.config/mantra-ports.json as its owner once it listens. Rebuilt; not restarted, it was not running.
+
+## 30.10.2026: PERMISSIONS at the top right
+
+> please make this in every application that needs some permission. If permissions are not set, it needs to have text in the top right: "Permissions." Then I click on it, and it opens me directly to my settings page where I need to set permissions.
+
+**Status:** requested 30.10.2026; being built (MANTRA_MANIFEST swift-apps.md, last section).
