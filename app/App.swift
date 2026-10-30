@@ -10,7 +10,8 @@ import SwiftUI
 import AppKit
 import Carbon.HIToolbox
 
-let VERSION = 9
+// v10 (30.10.2026, Marko: "If permissions are not set, it needs to have text in the top right"): PERMISSIONS
+let VERSION = 10
 let RELEASES = "https://github.com/markoboskoauroville/MACOS_TASK_SWITCHER/releases/latest"
 let DEFAULT_HOTKEY = "ctrl+`"
 let DOUBLE_DEFAULT = 0.4
@@ -59,6 +60,7 @@ final class Switcher: ObservableObject {
     @Published var hotkeyOK = false
     @Published var tapOK = false
     @Published var tick = 0
+    @Published var permOK = Permissions.missing.isEmpty      // v10: read every 2 s, set only when it changed
 
     // ---------------------------------------------------------------- start
     func start() {
@@ -71,7 +73,8 @@ final class Switcher: ObservableObject {
         HotKeys.onStep = { [weak self] dir in self?.step(dir) }
         ctrl.seconds = { [weak self] in self?.doubleSeconds() ?? DOUBLE_DEFAULT }
         ctrl.onDouble = { [weak self] in guard let self = self else { return }; if self.row != nil { self.cancel() } else { self.step(1) } }
-        _ = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
+        // v10: at login (--login) nothing is asked; the window's PERMISSIONS waits for him (swift-apps.md)
+        _ = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: !CommandLine.arguments.contains("--login")] as CFDictionary)
         hotkeyOK = keys.bind(hotkeyText())
         tapOK = ctrl.start()
         remote.start()                                           // v6: the phone's dock (Remote.swift, :8861)
@@ -81,6 +84,7 @@ final class Switcher: ObservableObject {
             self.remote.start()                                  // a listener that failed (port busy) is tried again
             if self.keys.bound != self.hotkeyText() { self.hotkeyOK = self.keys.bind(self.hotkeyText()) }   // held by another app: try again
             self.dock.followDock()
+            let p = Permissions.missing.isEmpty; if p != self.permOK { self.permOK = p }
             self.tick += 1
         }
         // for a test or a script, as `hs -c` reached the Lua one: open, walk, close the square from outside
@@ -256,9 +260,9 @@ final class Switcher: ObservableObject {
 }
 
 struct Word: View {
-    let text: String; let on: Bool; let action: () -> Void
+    let text: String; let on: Bool; var color: Color = GREEN; let action: () -> Void
     var body: some View {
-        Text(text).font(.system(size: 13, weight: .bold, design: .monospaced)).foregroundColor(on ? GREEN : GREY)
+        Text(text).font(.system(size: 13, weight: .bold, design: .monospaced)).foregroundColor(on ? color : GREY)
             .padding(.horizontal, 6).padding(.vertical, 4).contentShape(Rectangle()).onTapGesture(perform: action)
     }
 }
@@ -297,6 +301,11 @@ struct SettingsView: View {
                 Word(text: "ON", on: true) {}
                 Word(text: "OFF", on: false) { s.off() }
                 Spacer()
+                // v10 (Marko, 30.10.2026): a permission missing, PERMISSIONS at the top right; a click opens its page
+                if !s.permOK {
+                    Word(text: "PERMISSIONS", on: true, color: AMBER) { Permissions.openMissing() }
+                        .help("Accessibility is off: this opens its page in System Settings")
+                }
                 Text("v\(VERSION)").font(.system(size: 11, design: .monospaced)).foregroundColor(GREY).onTapGesture { NSWorkspace.shared.open(URL(string: RELEASES)!) }
                 CloseX()
             }
@@ -383,6 +392,25 @@ struct SettingsView: View {
         return s.starRows().compactMap { $0["key"] as? String }.filter { offered.contains($0) }
     }
     func rowName(_ key: String) -> String { s.starRows().first { ($0["key"] as? String) == key }.map { s.shortName($0) } ?? key }
+}
+
+// v10: the permissions the switcher uses: Accessibility (the menus pressed for the phone's dock, and the listen-only
+// tap that hears ⌃ tapped twice, which Accessibility alone allows; swift-apps.md, measured 30.10.2026)
+enum Permissions {
+    static let needed = ["Accessibility"]
+    static func allowed(_ p: String) -> Bool {
+        switch p {
+        case "Accessibility": return AXIsProcessTrusted()
+        default: return true
+        }
+    }
+    static var missing: [String] { needed.filter { !allowed($0) } }
+    // the system's own request once (it puts the app in the list), then the page of the first one missing
+    static func openMissing() {
+        guard let p = missing.first else { return }
+        if p == "Accessibility" { _ = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary) }
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_" + p)!)
+    }
 }
 
 // the engine is made after launch (UHD_HD_DISPLAY LESSONS 1: AppKit objects before launch crash); the window is its

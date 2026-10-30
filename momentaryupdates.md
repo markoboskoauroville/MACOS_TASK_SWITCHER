@@ -59,4 +59,4 @@ After the Dock Switcher starts, a double tap on Control does nothing; once ⌃` 
 
 > please make this in every application that needs some permission. If permissions are not set, it needs to have text in the top right: "Permissions." Then I click on it, and it opens me directly to my settings page where I need to set permissions.
 
-**Status:** requested 30.10.2026; being built (MANTRA_MANIFEST swift-apps.md, last section).
+**Status:** done in v10 (30.10.2026): PERMISSIONS (amber) on the ON / OFF row, between the spacer and v10/✕, while Accessibility (the only permission it uses: AX menus for the phone's dock, the listen-only ⌃⌃ tap) is off; a click asks once and opens Privacy_Accessibility. Re-read every 2 s, set only on change; at --login nothing is asked any more (the start used to ask always). Built and installed; not restarted, it was not running.
