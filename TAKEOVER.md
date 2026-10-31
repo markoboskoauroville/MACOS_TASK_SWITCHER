@@ -1,5 +1,10 @@
 # TAKEOVER: macOS Task Switcher
 
+**31.10.2026, v11: TOP on the first row.** Marko: *"Each needs to have the same user interface elements. On, off and top"*.
+TopWord beside ✕ (green = settings window `.floating`, UserDefaults `onTop`, applied at launch); OFF, TOP, PERMISSIONS, ✕
+are Accessibility buttons (`off`, `top`, `permissions`, `close`). `DockSwitcher --shot <png>`: a picture of the window
+without starting the switcher, the window held behind everything 4 s for an Accessibility check.
+
 Two generations side by side until Marko confirms the second:
 
 - **Lua** (switcher.lua, grid.lua, weather.lua, calendar.lua), loaded by MANTRA_STAR `apps/dock.lua` in Hammerspoon.

@@ -11,7 +11,8 @@ import AppKit
 import Carbon.HIToolbox
 
 // v10 (30.10.2026, Marko: "If permissions are not set, it needs to have text in the top right"): PERMISSIONS
-let VERSION = 10
+// v11 (31.10.2026, Marko: "Each needs to have the same user interface elements. On, off and top"): TOP beside ✕
+let VERSION = 11
 let RELEASES = "https://github.com/markoboskoauroville/MACOS_TASK_SWITCHER/releases/latest"
 let DEFAULT_HOTKEY = "ctrl+`"
 let DOUBLE_DEFAULT = 0.4
@@ -272,7 +273,32 @@ struct CloseX: View {
     var body: some View {
         Image(systemName: "xmark").font(.system(size: 14, weight: .semibold)).foregroundColor(GREY)
             .frame(width: 28, height: 28).contentShape(Rectangle()).onTapGesture { NSApp.keyWindow?.performClose(nil) }
+            .axButton("Close window", id: "close") { (NSApp.keyWindow ?? NSApp.windows.first { $0.title.hasPrefix("Dock Switcher") })?.performClose(nil) }
             .help("Close the window; the switcher stays on")
+    }
+}
+// v11: TOP, green = the settings window stays above every other window, kept in "onTop" and applied at launch
+// (the square and the clock keep their own levels)
+struct TopWord: View {
+    @AppStorage("onTop") private var onTop = false
+    var body: some View {
+        Word(text: "TOP", on: onTop) { onTop.toggle(); TopWord.float(onTop) }
+            .axButton("Top", id: "top", value: onTop ? "on" : "off") { onTop.toggle(); TopWord.float(onTop) }
+            .help("Always on top: green, this window stays above every other window")
+    }
+    static func float(_ on: Bool) {
+        for w in NSApp.windows where w.title.hasPrefix("Dock Switcher") { w.level = on ? .floating : .normal }
+    }
+}
+// every control an Accessibility button (MANTRA_MANIFEST swift-apps.md, "Accessibility built in")
+extension View {
+    func axButton(_ label: String, id: String, value: String? = nil, _ action: @escaping () -> Void) -> some View {
+        accessibilityElement(children: .ignore)
+            .accessibilityLabel(label)
+            .accessibilityIdentifier(id)
+            .accessibilityValue(value ?? "")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction(.default, action)
     }
 }
 struct Head: View {
@@ -300,13 +326,16 @@ struct SettingsView: View {
                 Text("DOCK SWITCHER").font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundColor(GREY)
                 Word(text: "ON", on: true) {}
                 Word(text: "OFF", on: false) { s.off() }
+                    .axButton("Off", id: "off") { DispatchQueue.main.async { s.off() } }
                 Spacer()
                 // v10 (Marko, 30.10.2026): a permission missing, PERMISSIONS at the top right; a click opens its page
                 if !s.permOK {
                     Word(text: "PERMISSIONS", on: true, color: AMBER) { Permissions.openMissing() }
+                        .axButton("Permissions", id: "permissions") { Permissions.openMissing() }
                         .help("Accessibility is off: this opens its page in System Settings")
                 }
                 Text("v\(VERSION)").font(.system(size: 11, design: .monospaced)).foregroundColor(GREY).onTapGesture { NSWorkspace.shared.open(URL(string: RELEASES)!) }
+                TopWord()
                 CloseX()
             }
             Head(name: "THE SQUARE", value: "\(s.hotkeyText().uppercased()) · \(s.dock.apps.count) APPS")
@@ -420,11 +449,28 @@ let SWITCHER = Switcher()
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow!
     func applicationDidFinishLaunching(_ n: Notification) {
-        SWITCHER.start()
+        // v11: --shot <png> draws the settings window into a PNG and quits after 4 s; the switcher is not started (a test:
+        // no key taken, nothing stored)
+        let shot = CommandLine.arguments.firstIndex(of: "--shot").flatMap { $0 + 1 < CommandLine.arguments.count ? CommandLine.arguments[$0 + 1] : nil }
+        if shot == nil { SWITCHER.start() }
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 600), styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
         window.title = "Dock Switcher (Mantra)"; window.isReleasedWhenClosed = false
         window.contentView = NSHostingView(rootView: SettingsView(s: SWITCHER))
         window.setContentSize(window.contentView!.fittingSize)
+        TopWord.float(UserDefaults.standard.bool(forKey: "onTop"))       // v11: TOP applied at launch
+        if let path = shot {
+            let v = window.contentView!; v.layoutSubtreeIfNeeded()
+            // behind every other window, never key or in front, for 4 s, so a script can read its Accessibility buttons
+            window.orderBack(nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+                if let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) {
+                    v.cacheDisplay(in: v.bounds, to: rep)
+                    try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
+                }
+                exit(0)
+            }
+            return
+        }
         window.center()
         // v2 (18.10.2026): brought back by the star at login (--login), the switcher works and its window waits
         if !CommandLine.arguments.contains("--login") { show() }

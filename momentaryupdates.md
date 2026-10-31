@@ -68,4 +68,8 @@ After the Dock Switcher starts, a double tap on Control does nothing; once ⌃` 
 The first row as MANTRA_MANIFEST swift-apps.md "The first row of every app: ON OFF … TOP ✕": ON, OFF at the left, TOP
 (green: the window above every other, UserDefaults `onTop`, applied at launch) beside ✕ at the right; each an
 Accessibility button (`off`, `top`, `close`).
-**Status:** pending
+**Status:** done 31.10.2026 in v11: TOP between the version and ✕ (green = the settings window `.floating`, `onTop`,
+applied at launch; the square and the clock keep their own levels); OFF, TOP, PERMISSIONS, ✕ Accessibility buttons.
+`DockSwitcher --shot <png>` draws the settings window (switcher not started), holds it behind every window for 4 s, quits:
+checked the picture (560 pt, the window's only width) and found `off`, `top`, `close` through Accessibility. Not running
+before the build, so not started (it takes ⌃` and the ⌃⌃ tap); the star starts it.
