@@ -10,7 +10,8 @@
 //                       the phone's arrows then walk it (Marko, 26.10.2026: "open my menu bar if it's hidden. With
 //                       arrows, I can navigate through the menu bar openings one by one, and then I can go down")
 //   GET /dock?show=1|0  the Dock's own hiding switched off (1: the Dock stays shown) or on (0), straight in the Dock
-//                       (CoreDock, no ⌥⌘D that a VNC layout can lose), then where it stands: {"ok","hidden",
+//                       (its setting written and the Dock restarted; no ⌥⌘D, which lost its ⌥ over VNC and became
+//                       iTerm's ⌘D, a new split pane), then where it stands: {"ok","hidden",
 //                       "x","y","w","h" (the Dock's bar, fractions of its screen, top left 0,0)} (Marko, 8.11.2026:
 //                       "dock button actually unhide the dock ... scroll my view down to the dock"); no show: state only
 //   GET /menuclose      closes every open menu of the app in front (AXCancel; a second press would not)
@@ -192,7 +193,7 @@ final class Remote {
             return (ok ? "200 OK" : "409 Conflict", "application/json", Data("{\"ok\":\(ok),\"trusted\":\(AXIsProcessTrusted())}".utf8))
         case "/dock":
             let show = u?.queryItems?.first { $0.name == "show" }?.value
-            if let v = show { DockHiding.set(hidden: v != "1"); Thread.sleep(forTimeInterval: 0.6) }  // the Dock slides in
+            if let v = show { DockHiding.set(hidden: v != "1"); Thread.sleep(forTimeInterval: 0.3) }  // the Dock settles
             var j: [String: Any] = ["ok": DockHiding.available, "hidden": DockHiding.hidden]
             if let f = DockHiding.frame() { j["x"] = f.x; j["y"] = f.y; j["w"] = f.w; j["h"] = f.h }
             return ("200 OK", "application/json", (try? JSONSerialization.data(withJSONObject: j)) ?? Data())
@@ -262,14 +263,22 @@ final class Remote {
 // The Dock's hiding, set inside the Dock itself (the private CoreDock calls System Settings uses), and the Dock's bar
 // by Accessibility, as fractions of the screen it stands on, so the phone can find it at any zoom.
 enum DockHiding {
-    private typealias SetFn = @convention(c) (Bool) -> Void
-    private typealias GetFn = @convention(c) () -> Bool
-    private static let lib = dlopen("/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices", RTLD_LAZY)
-    private static let setFn: SetFn? = dlsym(lib, "CoreDockSetAutoHideEnabled").map { unsafeBitCast($0, to: SetFn.self) }
-    private static let getFn: GetFn? = dlsym(lib, "CoreDockGetAutoHideEnabled").map { unsafeBitCast($0, to: GetFn.self) }
-    static var available: Bool { setFn != nil }
-    static var hidden: Bool { getFn?() ?? (UserDefaults(suiteName: "com.apple.dock")?.bool(forKey: "autohide") ?? false) }
-    static func set(hidden: Bool) { setFn?(hidden) }
+    // v13: CoreDockSetAutoHideEnabled and System Events' "autohide of dock preferences" are both ignored on this Mac
+    // (macOS 15, measured 8.11.2026); the setting written and the Dock started again is what it obeys (about 1 s)
+    static let available = true
+    static var hidden: Bool {
+        CFPreferencesAppSynchronize("com.apple.dock" as CFString)
+        return (CFPreferencesCopyAppValue("autohide" as CFString, "com.apple.dock" as CFString) as? Bool) ?? false
+    }
+    static func set(hidden h: Bool) {
+        guard h != hidden else { return }
+        CFPreferencesSetAppValue("autohide" as CFString, h as CFBoolean, "com.apple.dock" as CFString)
+        CFPreferencesAppSynchronize("com.apple.dock" as CFString)
+        let k = Process(); k.executableURL = URL(fileURLWithPath: "/usr/bin/killall"); k.arguments = ["Dock"]
+        try? k.run(); k.waitUntilExit()
+        // the Dock is back when its bar answers Accessibility again
+        for _ in 0..<30 { Thread.sleep(forTimeInterval: 0.1); if frame() != nil { break } }
+    }
 
     static func frame() -> (x: Double, y: Double, w: Double, h: Double)? {
         guard let dock = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first else { return nil }
