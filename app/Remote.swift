@@ -276,8 +276,13 @@ enum DockHiding {
         CFPreferencesAppSynchronize("com.apple.dock" as CFString)
         let k = Process(); k.executableURL = URL(fileURLWithPath: "/usr/bin/killall"); k.arguments = ["Dock"]
         try? k.run(); k.waitUntilExit()
-        // the Dock is back when its bar answers Accessibility again
-        for _ in 0..<30 { Thread.sleep(forTimeInterval: 0.1); if frame() != nil { break } }
+        // the new Dock is up when its bar stands where it should: on the screen when shown, past its edge when hiding
+        // (the first answers come from the old Dock, measured 8.11.2026)
+        Thread.sleep(forTimeInterval: 0.3)
+        for _ in 0..<40 {
+            if let f = frame(), h ? f.y + f.h > 1.001 : f.y + f.h <= 1.001 { break }
+            Thread.sleep(forTimeInterval: 0.1)
+        }
     }
 
     static func frame() -> (x: Double, y: Double, w: Double, h: Double)? {
