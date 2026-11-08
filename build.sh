@@ -33,6 +33,7 @@ cat > "$APP/Contents/Info.plist" <<PL
 <key>LSUIElement</key><true/>
 </dict></plist>
 PL
-codesign --force -s "Mantra Apps" "$APP"
+codesign --force -s "${SIGN:-Mantra Apps}" "$APP"
+[ -n "$NO_INSTALL" ] && { echo "built $APP (v$V)"; exit 0; }
 rm -rf "/Applications/$NAME.app"; cp -R "$APP" /Applications/
 echo "built $APP (v$V) and installed it in /Applications"

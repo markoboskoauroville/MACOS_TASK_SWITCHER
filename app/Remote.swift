@@ -9,6 +9,10 @@
 //   GET /menu           opens the menu bar of the app in front at its own menu (shown even when the bar hides itself);
 //                       the phone's arrows then walk it (Marko, 26.10.2026: "open my menu bar if it's hidden. With
 //                       arrows, I can navigate through the menu bar openings one by one, and then I can go down")
+//   GET /dock?show=1|0  the Dock's own hiding switched off (1: the Dock stays shown) or on (0), straight in the Dock
+//                       (CoreDock, no ⌥⌘D that a VNC layout can lose), then where it stands: {"ok","hidden",
+//                       "x","y","w","h" (the Dock's bar, fractions of its screen, top left 0,0)} (Marko, 8.11.2026:
+//                       "dock button actually unhide the dock ... scroll my view down to the dock"); no show: state only
 //   GET /menuclose      closes every open menu of the app in front (AXCancel; a second press would not)
 //   GET /keys?after=N   the number of keys the Mac has seen (key downs and modifier changes, the ⌃⌃ tap's own events);
 //                       held up to 3 s until it passes N, so the phone knows the moment its key landed (Marko, 26.10.2026:
@@ -186,6 +190,12 @@ final class Remote {
         case "/menu":
             let ok = openMenu()
             return (ok ? "200 OK" : "409 Conflict", "application/json", Data("{\"ok\":\(ok),\"trusted\":\(AXIsProcessTrusted())}".utf8))
+        case "/dock":
+            let show = u?.queryItems?.first { $0.name == "show" }?.value
+            if let v = show { DockHiding.set(hidden: v != "1"); Thread.sleep(forTimeInterval: 0.6) }  // the Dock slides in
+            var j: [String: Any] = ["ok": DockHiding.available, "hidden": DockHiding.hidden]
+            if let f = DockHiding.frame() { j["x"] = f.x; j["y"] = f.y; j["w"] = f.w; j["h"] = f.h }
+            return ("200 OK", "application/json", (try? JSONSerialization.data(withJSONObject: j)) ?? Data())
         case "/menuclose":
             closeMenus()
             return ("200 OK", "application/json", Data("{\"ok\":true}".utf8))
@@ -246,5 +256,40 @@ final class Remote {
         let d = rep.representation(using: .png, properties: [:]) ?? Data()
         icons[a.id] = d
         return d
+    }
+}
+
+// The Dock's hiding, set inside the Dock itself (the private CoreDock calls System Settings uses), and the Dock's bar
+// by Accessibility, as fractions of the screen it stands on, so the phone can find it at any zoom.
+enum DockHiding {
+    private typealias SetFn = @convention(c) (Bool) -> Void
+    private typealias GetFn = @convention(c) () -> Bool
+    private static let lib = dlopen("/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices", RTLD_LAZY)
+    private static let setFn: SetFn? = dlsym(lib, "CoreDockSetAutoHideEnabled").map { unsafeBitCast($0, to: SetFn.self) }
+    private static let getFn: GetFn? = dlsym(lib, "CoreDockGetAutoHideEnabled").map { unsafeBitCast($0, to: GetFn.self) }
+    static var available: Bool { setFn != nil }
+    static var hidden: Bool { getFn?() ?? (UserDefaults(suiteName: "com.apple.dock")?.bool(forKey: "autohide") ?? false) }
+    static func set(hidden: Bool) { setFn?(hidden) }
+
+    static func frame() -> (x: Double, y: Double, w: Double, h: Double)? {
+        guard let dock = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first else { return nil }
+        let app = AXUIElementCreateApplication(dock.processIdentifier)
+        var kids: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, kAXChildrenAttribute as CFString, &kids) == .success,
+              let list = (kids as? [AXUIElement])?.first(where: { role($0) == "AXList" }) else { return nil }
+        var pv: CFTypeRef?, sv: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(list, kAXPositionAttribute as CFString, &pv) == .success,
+              AXUIElementCopyAttributeValue(list, kAXSizeAttribute as CFString, &sv) == .success else { return nil }
+        var p = CGPoint.zero, sz = CGSize.zero
+        AXValueGetValue(pv as! AXValue, .cgPoint, &p); AXValueGetValue(sv as! AXValue, .cgSize, &sz)
+        // AX is top-left of the main screen; NSScreen is bottom-left: find the screen holding the bar's middle
+        let mainH = NSScreen.screens.first?.frame.height ?? 0
+        let mid = CGPoint(x: p.x + sz.width / 2, y: mainH - (p.y + sz.height / 2))
+        guard let scr = NSScreen.screens.first(where: { $0.frame.contains(mid) }) ?? NSScreen.screens.first else { return nil }
+        let f = scr.frame, top = mainH - f.maxY                  // the screen's top in AX coordinates
+        return ((p.x - f.minX) / f.width, (p.y - top) / f.height, sz.width / f.width, sz.height / f.height)
+    }
+    private static func role(_ e: AXUIElement) -> String? {
+        var r: CFTypeRef?; AXUIElementCopyAttributeValue(e, kAXRoleAttribute as CFString, &r); return r as? String
     }
 }
