@@ -196,6 +196,7 @@ final class Remote {
             if let v = show { DockHiding.set(hidden: v != "1"); Thread.sleep(forTimeInterval: 0.3) }  // the Dock settles
             var j: [String: Any] = ["ok": DockHiding.available, "hidden": DockHiding.hidden]
             if let f = DockHiding.frame() { j["x"] = f.x; j["y"] = f.y; j["w"] = f.w; j["h"] = f.h }
+            if let b = DockHiding.inPicture() { j["fx"] = b.x; j["fy"] = b.y; j["fw"] = b.w; j["fh"] = b.h; j["tw"] = b.tw; j["th"] = b.th }
             return ("200 OK", "application/json", (try? JSONSerialization.data(withJSONObject: j)) ?? Data())
         case "/menuclose":
             closeMenus()
@@ -303,6 +304,34 @@ enum DockHiding {
         let f = scr.frame, top = mainH - f.maxY                  // the screen's top in AX coordinates
         return ((p.x - f.minX) / f.width, (p.y - top) / f.height, sz.width / f.width, sz.height / f.height)
     }
+    // v15: the bar in the VNC picture's own pixels. Apple's server places every screen at its top-left in POINTS (the
+    // arrangement of System Settings) and draws it at its full PIXEL size: measured 8.11.2026, the BenQ 2560x1440 at 0,0,
+    // the Retina 3024x1964 at 2560,397, the picture 5584x2361. tw/th: the picture's size by this rule, to check.
+    static func inPicture() -> (x: Double, y: Double, w: Double, h: Double, tw: Double, th: Double)? {
+        guard let dock = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first else { return nil }
+        let app = AXUIElementCreateApplication(dock.processIdentifier)
+        var kids: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, kAXChildrenAttribute as CFString, &kids) == .success,
+              let list = (kids as? [AXUIElement])?.first(where: { role($0) == "AXList" }) else { return nil }
+        var pv: CFTypeRef?, sv: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(list, kAXPositionAttribute as CFString, &pv) == .success,
+              AXUIElementCopyAttributeValue(list, kAXSizeAttribute as CFString, &sv) == .success else { return nil }
+        var p = CGPoint.zero, sz = CGSize.zero
+        AXValueGetValue(pv as! AXValue, .cgPoint, &p); AXValueGetValue(sv as! AXValue, .cgSize, &sz)
+        let mainH = NSScreen.screens.first?.frame.height ?? 0
+        // every screen: its top-left in AX points, its size in points and its scale
+        let scr = NSScreen.screens.map { (left: $0.frame.minX, top: mainH - $0.frame.maxY, w: $0.frame.width, h: $0.frame.height, k: $0.backingScaleFactor) }
+        guard let minL = scr.map({ $0.left }).min(), let minT = scr.map({ $0.top }).min() else { return nil }
+        let tw = scr.map { $0.left - minL + $0.w * $0.k }.max() ?? 0
+        let th = scr.map { $0.top - minT + $0.h * $0.k }.max() ?? 0
+        let mid = CGPoint(x: p.x + sz.width / 2, y: p.y + sz.height / 2)
+        // the bar's screen: the one holding its middle, or (hiding, past the edge) the one above it
+        guard let s = scr.first(where: { mid.x >= $0.left && mid.x < $0.left + $0.w && mid.y >= $0.top && mid.y < $0.top + $0.h })
+                ?? scr.first(where: { mid.x >= $0.left && mid.x < $0.left + $0.w }) else { return nil }
+        let ox = s.left - minL, oy = s.top - minT
+        return (ox + (p.x - s.left) * s.k, oy + (p.y - s.top) * s.k, sz.width * s.k, sz.height * s.k, tw, th)
+    }
+
     private static func role(_ e: AXUIElement) -> String? {
         var r: CFTypeRef?; AXUIElementCopyAttributeValue(e, kAXRoleAttribute as CFString, &r); return r as? String
     }
