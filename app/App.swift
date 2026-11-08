@@ -12,7 +12,7 @@ import Carbon.HIToolbox
 
 // v10 (30.10.2026, Marko: "If permissions are not set, it needs to have text in the top right"): PERMISSIONS
 // v11 (31.10.2026, Marko: "Each needs to have the same user interface elements. On, off and top"): TOP beside ✕
-let VERSION = 15
+let VERSION = 16
 let RELEASES = "https://github.com/markoboskoauroville/MACOS_TASK_SWITCHER/releases/latest"
 let DEFAULT_HOTKEY = "ctrl+`"
 let DOUBLE_DEFAULT = 0.4

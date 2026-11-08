@@ -14,6 +14,9 @@
 //                       iTerm's ⌘D, a new split pane), then where it stands: {"ok","hidden",
 //                       "x","y","w","h" (the Dock's bar, fractions of its screen, top left 0,0)} (Marko, 8.11.2026:
 //                       "dock button actually unhide the dock ... scroll my view down to the dock"); no show: state only
+//   GET /windows        v16: every open window on the screens, in the VNC picture's pixels, left to right:
+//                       {"windows":[{"app","title","x","y","w","h"}],"tw","th"} (Marko, 8.11.2026: "another action
+//                       button called Apps ... it's like automatic pan and scanning. It targets each open window")
 //   GET /menuclose      closes every open menu of the app in front (AXCancel; a second press would not)
 //   GET /keys?after=N   the number of keys the Mac has seen (key downs and modifier changes, the ⌃⌃ tap's own events);
 //                       held up to 3 s until it passes N, so the phone knows the moment its key landed (Marko, 26.10.2026:
@@ -198,6 +201,9 @@ final class Remote {
             if let f = DockHiding.frame() { j["x"] = f.x; j["y"] = f.y; j["w"] = f.w; j["h"] = f.h }
             if let b = DockHiding.inPicture() { j["fx"] = b.x; j["fy"] = b.y; j["fw"] = b.w; j["fh"] = b.h; j["tw"] = b.tw; j["th"] = b.th }
             return ("200 OK", "application/json", (try? JSONSerialization.data(withJSONObject: j)) ?? Data())
+        case "/windows":
+            let (list, tw, th) = DockHiding.windows()
+            return ("200 OK", "application/json", (try? JSONSerialization.data(withJSONObject: ["windows": list, "tw": tw, "th": th])) ?? Data())
         case "/menuclose":
             closeMenus()
             return ("200 OK", "application/json", Data("{\"ok\":true}".utf8))
@@ -330,6 +336,35 @@ enum DockHiding {
                 ?? scr.first(where: { mid.x >= $0.left && mid.x < $0.left + $0.w }) else { return nil }
         let ox = s.left - minL, oy = s.top - minT
         return (Double(ox + (p.x - s.left) * s.k), Double(oy + (p.y - s.top) * s.k), Double(sz.width * s.k), Double(sz.height * s.k), Double(tw), Double(th))
+    }
+
+    // v16: the open windows (layer 0, on screen, larger than 120x80 points, not this app's), mapped like the Dock's
+    // bar; ordered by screen left to right, then by their middles left to right and top to bottom
+    static func windows() -> ([[String: Any]], Double, Double) {
+        let mainH = NSScreen.screens.first?.frame.height ?? 0
+        let scr = NSScreen.screens.map { (left: $0.frame.minX, top: mainH - $0.frame.maxY, w: $0.frame.width, h: $0.frame.height, k: $0.backingScaleFactor) }
+        guard let minL = scr.map({ $0.left }).min(), let minT = scr.map({ $0.top }).min() else { return ([], 0, 0) }
+        let tw = Double(scr.map { $0.left - minL + $0.w * $0.k }.max() ?? 0)
+        let th = Double(scr.map { $0.top - minT + $0.h * $0.k }.max() ?? 0)
+        let me = ProcessInfo.processInfo.processIdentifier
+        let info = (CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]) ?? []
+        var out: [(Int, Double, Double, [String: Any])] = []
+        for w in info {
+            guard (w[kCGWindowLayer as String] as? Int) == 0, (w[kCGWindowOwnerPID as String] as? Int32) != me,
+                  let b = w[kCGWindowBounds as String] as? [String: Any], let r = CGRect(dictionaryRepresentation: b as CFDictionary),
+                  r.width > 120, r.height > 80, (w[kCGWindowAlpha as String] as? Double ?? 1) > 0 else { continue }
+            let mid = CGPoint(x: r.midX, y: r.midY)
+            guard let si = scr.firstIndex(where: { mid.x >= $0.left && mid.x < $0.left + $0.w && mid.y >= $0.top && mid.y < $0.top + $0.h }) else { continue }
+            let s = scr[si]
+            // only the part of the window on its own screen
+            let vis = r.intersection(CGRect(x: s.left, y: s.top, width: s.w, height: s.h))
+            let x = Double(s.left - minL + (vis.minX - s.left) * s.k), y = Double(s.top - minT + (vis.minY - s.top) * s.k)
+            out.append((si, Double(s.left), Double(mid.x * 10000 + mid.y), [
+                "app": w[kCGWindowOwnerName as String] as? String ?? "", "title": w[kCGWindowName as String] as? String ?? "",
+                "x": x, "y": y, "w": Double(vis.width * s.k), "h": Double(vis.height * s.k)]))
+        }
+        let sorted = out.sorted { ($0.1, $0.2) < ($1.1, $1.2) }.map { $0.3 }
+        return (sorted, tw, th)
     }
 
     private static func role(_ e: AXUIElement) -> String? {
