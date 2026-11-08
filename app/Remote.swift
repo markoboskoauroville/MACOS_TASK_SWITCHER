@@ -329,7 +329,7 @@ enum DockHiding {
         guard let s = scr.first(where: { mid.x >= $0.left && mid.x < $0.left + $0.w && mid.y >= $0.top && mid.y < $0.top + $0.h })
                 ?? scr.first(where: { mid.x >= $0.left && mid.x < $0.left + $0.w }) else { return nil }
         let ox = s.left - minL, oy = s.top - minT
-        return (ox + (p.x - s.left) * s.k, oy + (p.y - s.top) * s.k, sz.width * s.k, sz.height * s.k, tw, th)
+        return (Double(ox + (p.x - s.left) * s.k), Double(oy + (p.y - s.top) * s.k), Double(sz.width * s.k), Double(sz.height * s.k), Double(tw), Double(th))
     }
 
     private static func role(_ e: AXUIElement) -> String? {
