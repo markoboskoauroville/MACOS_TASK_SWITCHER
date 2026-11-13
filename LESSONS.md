@@ -19,3 +19,7 @@
   Tailscale, or have Marko allow it in System Settings → Privacy & Security → Local Network.
 - **pkill -f with "(Mantra)" in the pattern misses**: the parentheses are a regex group. Kill by `pgrep -f MacOS/DockSwitcher`.
 
+
+## 13.11.2026
+
+- 13.11.2026: after removing an engine, grep every app for calls into it (hs, hammerspoon) and drop them.

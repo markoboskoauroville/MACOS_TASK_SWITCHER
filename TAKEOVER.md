@@ -161,3 +161,7 @@ user interface, there will now be an on/off switch"). Running is ON; OFF closes 
 and quits the app (the ⌃⌃ tap goes with it). A ✕ at the far upper right of that row closes the window only and the
 switcher keeps working (Marko: "please unify the position of the close button on every application. It's far upper
 right corner"); the star's open brings the window back, and `--login` still starts it without one.
+
+## State at close, 13.11.2026
+
+Dock Switcher v17 (13.11.2026): no Hammerspoon call for companions (Hammerspoon is removed).
