@@ -73,3 +73,9 @@ applied at launch; the square and the clock keep their own levels); OFF, TOP, PE
 `DockSwitcher --shot <png>` draws the settings window (switcher not started), holds it behind every window for 4 s, quits:
 checked the picture (560 pt, the window's only width) and found `off`, `top`, `close` through Accessibility. Not running
 before the build, so not started (it takes ⌃` and the ⌃⌃ tap); the star starts it.
+
+## 13.11.2026: no Hammerspoon any more
+
+> "Let me know why this Hammer Spoon is still running when I'm converting everything to Swift. If something is not converted, please create agents to convert anything that is still on Hammer Spoon to Swift right now." (Marko, 13.11.2026)
+
+**Status:** v17 written 13.11.2026. The companions of an app (apps that start with it) no longer ask Hammerspoon (`hs -c`) to start a Lua row of the star: every Swift row (kind "app") still opens by its path, a row still in Lua is skipped until its Swift version exists. Built only by GitHub.

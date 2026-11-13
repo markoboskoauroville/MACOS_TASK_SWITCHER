@@ -12,7 +12,7 @@ import Carbon.HIToolbox
 
 // v10 (30.10.2026, Marko: "If permissions are not set, it needs to have text in the top right"): PERMISSIONS
 // v11 (31.10.2026, Marko: "Each needs to have the same user interface elements. On, off and top"): TOP beside ✕
-let VERSION = 16
+let VERSION = 17
 let RELEASES = "https://github.com/markoboskoauroville/MACOS_TASK_SWITCHER/releases/latest"
 let DEFAULT_HOTKEY = "ctrl+`"
 let DOUBLE_DEFAULT = 0.4
@@ -88,7 +88,7 @@ final class Switcher: ObservableObject {
             let p = Permissions.missing.isEmpty; if p != self.permOK { self.permOK = p }
             self.tick += 1
         }
-        // for a test or a script, as `hs -c` reached the Lua one: open, walk, close the square from outside
+        // for a test or a script (the Lua version was reached with a command line): open, walk, close the square from outside
         let dnc = DistributedNotificationCenter.default()
         dnc.addObserver(forName: Notification.Name("community.auroville.dockswitcher.step"), object: nil, queue: .main) { [weak self] _ in self?.step(1) }
         dnc.addObserver(forName: Notification.Name("community.auroville.dockswitcher.close"), object: nil, queue: .main) { [weak self] _ in self?.cancel() }
@@ -221,20 +221,10 @@ final class Switcher: ObservableObject {
         DispatchQueue.global().async {
             var started: [String] = []
             for r in rows {
-                let key = r["key"] as? String ?? ""
                 if (r["kind"] as? String) == "app", let path = r["app"] as? String {
                     let on = NSWorkspace.shared.runningApplications.contains { $0.bundleURL?.path == path }
                     if !on { NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: path), configuration: NSWorkspace.OpenConfiguration()) { _, _ in }; started.append(self.shortName(r)) }
-                } else {                                          // still a Lua app of the star
-                    let lua = "local a; for _, x in ipairs((STAR and STAR.apps) or {}) do if x.key == '\(key)' then a = x end end; " +
-                              "if a and not a.running() then a.start(); if STAR.remember then STAR.remember() end; return 'started' end; return 'on'"
-                    let p = Process(); p.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/hs"); p.arguments = ["-t", "5", "-c", lua]
-                    let pipe = Pipe(); p.standardOutput = pipe; p.standardError = FileHandle.nullDevice
-                    if (try? p.run()) != nil {
-                        let out = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self); p.waitUntilExit()
-                        if out.contains("started") { started.append(self.shortName(r)) }
-                    }
-                }
+                }                                                   // (a row still in Lua has no hand any more: no Hammerspoon, 13.11.2026)
             }
             if !started.isEmpty { DispatchQueue.main.async { Toast.shared.show("\(NAMES[a.id] ?? a.name) starts: \(started.joined(separator: ", "))", 3) } }
         }
